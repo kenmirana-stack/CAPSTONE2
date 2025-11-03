@@ -1,0 +1,3507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MOONRIDER - Gas Station & Repair Shop Locator</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary-color: #10b981;
+            --secondary-dark: #059669;
+            --danger-color: #ef4444;
+            --danger-dark: #dc2626;
+            --warning-color: #f59e0b;
+            --warning-dark: #d97706;
+            --info-color: #06b6d4;
+            --info-dark: #0891b2;
+            --dark-color: #1e293b;
+            --dark-secondary: #334155;
+            --light-bg: #f8fafc;
+            --border-color: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --gray-light: #e2e8f0;
+            --gray: #64748b;
+            --light: #f8fafc;
+            --warning: #f59e0b;
+            --header-height: 60px;
+            --controls-height: 70px;
+            --bottom-sheet-height: 40vh;
+        }
+
+        html {
+            -webkit-text-size-adjust: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--light-bg);
+            overflow: hidden;
+            height: 100%;
+            touch-action: manipulation;
+        }
+
+        /* Auth Screen Styles */
+        #auth-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: 32px 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header h1 {
+            font-size: 1.75rem;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .auth-header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 14px 14px 48px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 16px;
+            transition: var(--transition);
+            min-height: 52px;
+            background: #fafafa;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .auth-form button {
+            padding: 16px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            min-height: 52px;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+        }
+
+        .auth-form button:hover, .auth-form button:active {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 8px rgba(37, 99, 235, 0.25);
+        }
+
+        .auth-links {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .auth-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            border-radius: var(--radius-md);
+            padding: 8px;
+        }
+
+        .auth-link:hover {
+            color: var(--primary-dark);
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .skip-auth {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            cursor: pointer;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            border-radius: var(--radius-md);
+            padding: 8px;
+        }
+
+        .skip-auth:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .auth-error, .auth-success {
+            padding: 12px;
+            border-radius: var(--radius-md);
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .auth-error {
+            background: #fee;
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .auth-success {
+            background: #efe;
+            color: var(--secondary-color);
+            border: 1px solid var(--secondary-color);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Main App Styles - Mobile First */
+        .container {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+            opacity: 0;
+            transition: opacity 0.5s;
+            position: relative;
+        }
+
+        .container.visible {
+            opacity: 1;
+        }
+
+        /* Header - Fixed at top */
+        header {
+            background: white;
+            padding: 0 16px;
+            box-shadow: var(--shadow-md);
+            z-index: 1000;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .header-title {
+            display: flex;
+            flex-direction: column;
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            display: none; /* Hide on mobile */
+        }
+
+        .user-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-welcome {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: none; /* Hide on mobile */
+        }
+
+        .btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition);
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover, .btn-primary:active {
+            background: var(--primary-dark);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-outline:hover, .btn-outline:active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-success:hover, .btn-success:active {
+            background: var(--secondary-dark);
+        }
+
+        .btn-favorite {
+            background: transparent;
+            border: 2px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .btn-favorite:hover, .btn-favorite.active, .btn-favorite:active {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .logout-btn {
+            background: var(--danger-color);
+            color: white;
+            padding: 8px 12px;
+        }
+
+        .logout-btn:hover, .logout-btn:active {
+            background: var(--danger-dark);
+        }
+
+        /* User Profile Button */
+        .user-profile-btn {
+            background: transparent;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+
+        .user-profile-btn:hover, .user-profile-btn:active {
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        /* Controls - Fixed below header */
+        .controls {
+            display: flex;
+            gap: 12px;
+            padding: 12px 16px;
+            background: white;
+            box-shadow: var(--shadow-sm);
+            z-index: 1000;
+            position: fixed;
+            top: var(--header-height);
+            left: 0;
+            right: 0;
+            height: var(--controls-height);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+        }
+
+        .controls::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Edge */
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .control-group label {
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .control-group select {
+            padding: 10px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            min-height: 44px;
+            background: white;
+            min-width: 140px;
+        }
+
+        .search-box {
+            position: relative;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 12px 10px 38px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            min-height: 44px;
+            background: #f8f9fa;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: white;
+        }
+
+        #locate-me, #clear-route {
+            padding: 10px 14px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 14px;
+            transition: var(--transition);
+            min-height: 44px;
+            min-width: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #locate-me:hover, #locate-me:active, #clear-route:hover, #clear-route:active {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        }
+
+        #clear-route {
+            background: var(--danger-color);
+        }
+
+        #clear-route:hover, #clear-route:active {
+            background: var(--danger-dark);
+        }
+
+        /* Main Content - Map takes remaining space */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            margin-top: calc(var(--header-height) + var(--controls-height));
+            height: calc(100vh - var(--header-height) - var(--controls-height));
+        }
+
+        #map {
+            flex: 1;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Floating Action Button - Like Google Maps */
+        .fab {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+        }
+
+        .fab:hover, .fab:active {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        /* User Profile Page */
+        .profile-page {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .profile-page.active {
+            display: flex;
+        }
+
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .profile-header-content {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            border: 3px solid white;
+        }
+
+        .profile-info h2 {
+            font-size: 1.5rem;
+            margin-bottom: 4px;
+        }
+
+        .profile-info p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .profile-tabs {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .profile-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .profile-tab {
+            padding: 16px 20px;
+            border: none;
+            background: transparent;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .profile-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .profile-tab:hover {
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .profile-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px;
+        }
+
+        .profile-section {
+            display: none;
+        }
+
+        .profile-section.active {
+            display: block;
+        }
+
+        .profile-item {
+            padding: 16px;
+            background: white;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .profile-item i {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            width: 24px;
+        }
+
+        .profile-item-content {
+            flex: 1;
+        }
+
+        .profile-item-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .profile-item-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .history-item, .favorite-item {
+            padding: 16px;
+            background: white;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 12px;
+        }
+
+        .history-item-header, .favorite-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .history-item-name, .favorite-item-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .history-item-address, .favorite-item-address {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .history-item-date, .favorite-item-type {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+
+        .favorite-item-type {
+            background: var(--primary-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            color: var(--gray-light);
+        }
+
+        .empty-state p {
+            margin-bottom: 16px;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Bottom Sheet for Location Info - Mobile Friendly */
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            max-height: var(--bottom-sheet-height);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bottom-sheet.active {
+            transform: translateY(0);
+        }
+
+        .bottom-sheet-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: relative;
+        }
+
+        .bottom-sheet-header::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 4px;
+            background: var(--gray-light);
+            border-radius: 2px;
+        }
+
+        .bottom-sheet-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #333;
+            margin: 8px 0 0;
+            flex: 1;
+        }
+
+        .location-type {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .bottom-sheet-body {
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Location image removed from both mobile and desktop */
+        .location-image {
+            display: none !important;
+        }
+
+        .detail-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .detail-icon {
+            color: #667eea;
+            margin-right: 12px;
+            margin-top: 2px;
+            min-width: 16px;
+            font-size: 1rem;
+        }
+
+        .detail-text {
+            flex: 1;
+            color: #555;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .services-list, .fuel-types-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 5px;
+        }
+
+        .service-tag, .fuel-tag {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* Action Buttons Grid */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-full {
+            grid-column: 1 / -1;
+        }
+
+        .close-card {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #6c757d;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .close-card:hover, .close-card:active {
+            background: rgba(0,0,0,0.05);
+        }
+
+        /* Route Summary - Compact */
+        .route-summary {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: none;
+            padding: 12px 16px;
+            max-width: 200px;
+        }
+
+        .route-summary.active {
+            display: block;
+        }
+
+        .route-summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .route-summary-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .route-summary-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1rem;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .route-summary-close:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .route-summary-details {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .route-summary-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .route-summary-item i {
+            color: var(--primary-color);
+            width: 16px;
+        }
+
+        /* Reviews Section */
+        .reviews-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--gray-light);
+        }
+
+        .reviews-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .average-rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .stars {
+            color: var(--warning);
+        }
+
+        .reviews-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .review-item {
+            padding: 12px;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+        .review-item:last-child {
+            border-bottom: none;
+        }
+
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .review-author {
+            font-weight: 600;
+        }
+
+        .review-rating {
+            color: var(--warning);
+        }
+
+        .review-text {
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .review-date {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+
+        .review-form {
+            margin-top: 15px;
+            padding: 15px;
+            background: var(--light);
+            border-radius: 8px;
+        }
+
+        .rating-stars {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+
+        .rating-star {
+            color: #ddd;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: color 0.2s ease;
+        }
+
+        .rating-star:hover,
+        .rating-star.active {
+            color: var(--warning);
+        }
+
+        .review-textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--gray-light);
+            border-radius: 6px;
+            resize: vertical;
+            min-height: 80px;
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+
+        /* Loading Spinner */
+        .map-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            z-index: 1000;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(37, 99, 235, 0.2);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .map-loading p {
+            margin: 0;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 10000;
+            animation: slideInRight 0.3s ease;
+            max-width: 350px;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--secondary-color);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .toast.info {
+            border-left: 4px solid var(--info-color);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .toast i {
+            font-size: 1.2rem;
+        }
+
+        .toast.success i {
+            color: var(--secondary-color);
+        }
+
+        .toast.error i {
+            color: var(--danger-color);
+        }
+
+        .toast.info i {
+            color: var(--info-color);
+        }
+
+        .toast.warning i {
+            color: var(--warning-color);
+        }
+
+        /* Swipe indicator for bottom sheet */
+        .swipe-indicator {
+            width: 40px;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            margin: 0 auto 4px;
+        }
+
+        /* Mobile Optimization - Clean up cluttered elements */
+        @media (max-width: 768px) {
+            /* Hide unnecessary elements on mobile */
+            header p {
+                display: none !important;
+            }
+            
+            .user-welcome {
+                display: none !important;
+            }
+
+            /* Remove grab bar and tighten bottom-sheet spacing to reclaim vertical space */
+            .swipe-indicator {
+                display: none !important;
+            }
+
+            .bottom-sheet-header {
+                padding: 8px 12px;
+            }
+
+            .bottom-sheet-title {
+                margin-top: 0;
+                font-size: 1.05rem;
+            }
+
+            .bottom-sheet-body {
+                padding: 8px 12px;
+            }
+
+            .detail-item {
+                padding: 6px 8px;
+                margin-bottom: 6px;
+            }
+
+            .action-buttons {
+                margin-top: 6px;
+                gap: 6px;
+            }
+            
+            /* Simplify header */
+            .header-content {
+                flex-direction: row;
+                gap: 10px;
+                text-align: left;
+            }
+            
+            header h1 {
+                font-size: 1.1rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            
+            /* Compact controls */
+            .controls {
+                padding: 8px 12px;
+                gap: 8px;
+                height: auto;
+                min-height: 60px;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+            }
+            
+            .control-group {
+                flex-shrink: 0;
+            }
+            
+            .control-group label {
+                display: none;
+            }
+            
+            .control-group select {
+                min-width: 120px;
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+            
+            .search-box {
+                min-width: 140px;
+                flex: 1;
+            }
+            
+            .search-box input {
+                padding: 8px 8px 8px 32px;
+                font-size: 13px;
+            }
+            
+            .search-box i {
+                left: 10px;
+                font-size: 14px;
+            }
+            
+            #locate-me, #clear-route {
+                padding: 8px 12px;
+                font-size: 13px;
+                min-width: auto;
+            }
+            
+            #locate-me span, #clear-route span {
+                display: none;
+            }
+            
+            /* Simplify bottom sheet */
+            .bottom-sheet {
+                max-height: 50vh;
+            }
+            
+            .bottom-sheet-header {
+                padding: 12px 16px;
+            }
+            
+            .bottom-sheet-title {
+                font-size: 1.1rem;
+                margin-top: 4px;
+            }
+            
+            .location-type {
+                font-size: 0.7rem;
+                padding: 3px 8px;
+            }
+            
+            .bottom-sheet-body {
+                padding: 12px 16px;
+            }
+            
+            .detail-item {
+                padding: 8px 10px;
+                margin-bottom: 8px;
+            }
+            
+            .detail-icon {
+                font-size: 0.9rem;
+                margin-right: 8px;
+            }
+            
+            .detail-text {
+                font-size: 0.85rem;
+            }
+            
+            /* Compact action buttons */
+            .action-buttons {
+                grid-template-columns: 1fr;
+                gap: 8px;
+                margin-top: 12px;
+            }
+            
+            .btn {
+                padding: 10px 12px;
+                font-size: 0.85rem;
+                min-height: 40px;
+            }
+            
+            /* Simplify reviews section */
+            .reviews-section {
+                margin-top: 15px;
+                padding-top: 15px;
+            }
+            
+            .reviews-header {
+                margin-bottom: 10px;
+            }
+            
+            .reviews-header h4 {
+                font-size: 1rem;
+            }
+            
+            .average-rating {
+                font-size: 0.8rem;
+            }
+            
+            .review-item {
+                padding: 8px 0;
+            }
+            
+            .review-header {
+                margin-bottom: 4px;
+            }
+            
+            .review-author {
+                font-size: 0.85rem;
+            }
+            
+            .review-text {
+                font-size: 0.8rem;
+                margin-bottom: 2px;
+            }
+            
+            .review-date {
+                font-size: 0.75rem;
+            }
+            
+            /* Compact review form */
+            .review-form {
+                margin-top: 12px;
+                padding: 12px;
+            }
+            
+            .review-form h5 {
+                font-size: 0.9rem;
+                margin-bottom: 8px;
+            }
+            
+            .rating-stars {
+                margin-bottom: 8px;
+            }
+            
+            .rating-star {
+                font-size: 1.1rem;
+            }
+            
+            .review-textarea {
+                min-height: 60px;
+                font-size: 0.85rem;
+                padding: 8px;
+            }
+            
+            /* Location image removed from mobile to save space */
+            .location-image {
+                display: none !important;
+            }
+            
+            /* Make FAB smaller */
+            .fab {
+                width: 48px;
+                height: 48px;
+                bottom: 16px;
+                right: 16px;
+                font-size: 1.1rem;
+            }
+            
+            /* Profile page mobile adjustments */
+            .profile-header {
+                padding: 16px;
+            }
+            
+            .profile-avatar {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+            }
+            
+            .profile-info h2 {
+                font-size: 1.3rem;
+            }
+            
+            .profile-tab {
+                padding: 12px 16px;
+                font-size: 0.85rem;
+            }
+            
+            /* Route summary mobile adjustments */
+            .route-summary {
+                top: 5px;
+                left: 5px;
+                padding: 10px 12px;
+                max-width: 180px;
+            }
+            
+            .route-summary-title {
+                font-size: 0.8rem;
+            }
+            
+            .route-summary-item {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Extra small devices */
+        @media (max-width: 360px) {
+            .auth-container {
+                padding: 20px 16px;
+            }
+            
+            .controls {
+                padding: 6px 10px;
+            }
+            
+            header {
+                padding: 0 10px;
+            }
+            
+            .control-group select {
+                min-width: 100px;
+                padding: 6px 8px;
+            }
+            
+            .search-box {
+                min-width: 120px;
+            }
+            
+            .bottom-sheet {
+                max-height: 55vh;
+            }
+            
+            .bottom-sheet-header,
+            .bottom-sheet-body {
+                padding: 10px 12px;
+            }
+            
+            .route-summary {
+                max-width: 160px;
+            }
+        }
+
+        /* Desktop Styles */
+        @media (min-width: 768px) {
+            :root {
+                --header-height: 70px;
+                --controls-height: 80px;
+            }
+            
+            .auth-container {
+                padding: 40px;
+                max-width: 450px;
+            }
+            
+            .auth-header h1 {
+                font-size: 2rem;
+            }
+            
+            header {
+                padding: 0 24px;
+            }
+            
+            header h1 {
+                font-size: 1.5rem;
+            }
+            
+            header p {
+                display: block;
+                font-size: 0.9rem;
+            }
+            
+            .user-welcome {
+                display: block;
+            }
+            
+            .controls {
+                padding: 16px 24px;
+                gap: 16px;
+            }
+            
+            .control-group select {
+                min-width: 160px;
+            }
+            
+            .search-box {
+                min-width: 240px;
+            }
+            
+            /* Desktop info card */
+            .bottom-sheet {
+                display: none;
+            }
+            
+            .info-card {
+                position: absolute;
+                bottom: 20px;
+                right: 20px;
+                width: 350px;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+                display: none;
+                max-height: 70vh;
+                overflow-y: auto;
+            }
+            
+            .info-card.active {
+                display: block;
+            }
+            
+            .info-card-header {
+                padding: 16px;
+                border-bottom: 1px solid var(--gray-light);
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+            }
+            
+            .info-card-title {
+                font-size: 1.3rem;
+                font-weight: 700;
+                color: #333;
+                margin: 0;
+                flex: 1;
+            }
+            
+            /* Route summary desktop */
+            .route-summary {
+                top: 20px;
+                left: 20px;
+                max-width: 220px;
+            }
+            
+            /* Profile page desktop adjustments */
+            .profile-page {
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                width: 90%;
+                max-width: 600px;
+                height: 80%;
+                max-height: 700px;
+                border-radius: var(--radius-xl);
+                box-shadow: var(--shadow-xl);
+            }
+            
+            .profile-header {
+                border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            }
+        }
+
+        /* Large Desktop Styles */
+        @media (min-width: 1024px) {
+            .info-card {
+                width: 380px;
+            }
+            
+            .route-summary {
+                max-width: 240px;
+            }
+        }
+
+        /* Fix for mobile - hide desktop info card */
+        @media (max-width: 767px) {
+            .info-card {
+                display: none !important;
+            }
+        }
+
+        /* Leaflet Routing Machine Customization */
+        .leaflet-routing-container {
+            display: none !important;
+        }
+        
+        .leaflet-routing-container-hide {
+            display: none !important;
+        }
+
+        /* Custom marker styles */
+        .custom-marker {
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        .user-marker {
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+    </style>
+</head>
+<body>
+    <!-- Authentication Screen -->
+    <div id="auth-screen">
+        <!-- Login Form -->
+        <div class="auth-container" id="login-container">
+            <div class="auth-header">
+                <h1><i class="fas fa-gas-pump"></i> MOONRIDER <i class="fas fa-wrench"></i></h1>
+                <p>Sign in to access all features</p>
+            </div>
+
+            <form class="auth-form" id="login-form">
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="login-email" placeholder="Email address" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="login-password" placeholder="Password" required>
+                </div>
+                <button type="submit">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+                <div class="auth-error" id="login-error" style="display: none;">Invalid email or password</div>
+                <div class="auth-success" id="login-success" style="display: none;"></div>
+            </form>
+
+            <div class="auth-links">
+                <a class="auth-link" id="create-account-link">
+                    <i class="fas fa-user-plus"></i> Create New Account
+                </a>
+                <a class="auth-link" id="forgot-password-link">
+                    <i class="fas fa-key"></i> Forgot Password?
+                </a>
+            </div>
+
+            <a class="skip-auth" id="skip-auth">
+                <i class="fas fa-arrow-right"></i> Continue as Guest
+            </a>
+        </div>
+
+        <!-- Create Account Form -->
+        <div class="auth-container" id="create-account-container" style="display: none;">
+            <div class="auth-header">
+                <h1><i class="fas fa-user-plus"></i> Create Account</h1>
+                <p>Join MOONRIDER today</p>
+            </div>
+
+            <form class="auth-form" id="signup-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="signup-name" placeholder="Full Name" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="signup-email" placeholder="Email address" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="signup-password" placeholder="Password" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="signup-confirm-password" placeholder="Confirm Password" required>
+                </div>
+                <button type="submit">
+                    <i class="fas fa-user-check"></i> Create Account
+                </button>
+                <div class="auth-error" id="signup-error" style="display: none;">Passwords don't match</div>
+                <div class="auth-success" id="signup-success" style="display: none;"></div>
+            </form>
+
+            <div class="auth-links">
+                <a class="auth-link" id="back-to-login-link">
+                    <i class="fas fa-arrow-left"></i> Back to Login
+                </a>
+            </div>
+        </div>
+
+        <!-- Forgot Password Form -->
+        <div class="auth-container" id="forgot-password-container" style="display: none;">
+            <div class="auth-header">
+                <h1><i class="fas fa-key"></i> Forgot Password</h1>
+                <p>Enter your email to receive a reset code</p>
+            </div>
+
+            <form class="auth-form" id="forgot-password-form">
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="forgot-email" placeholder="Email address" required>
+                </div>
+                <button type="submit">
+                    <i class="fas fa-paper-plane"></i> Send Reset Code
+                </button>
+                <div class="auth-error" id="forgot-error" style="display: none;"></div>
+                <div class="auth-success" id="forgot-success" style="display: none;"></div>
+            </form>
+
+            <div class="auth-links">
+                <a class="auth-link" id="back-to-login-link2">
+                    <i class="fas fa-arrow-left"></i> Back to Login
+                </a>
+            </div>
+        </div>
+
+        <!-- Reset Password Form -->
+        <div class="auth-container" id="reset-password-container" style="display: none;">
+            <div class="auth-header">
+                <h1><i class="fas fa-shield-alt"></i> Reset Password</h1>
+                <p>Enter the code and your new password</p>
+            </div>
+
+            <form class="auth-form" id="reset-password-form">
+                <div class="input-group">
+                    <i class="fas fa-hashtag"></i>
+                    <input type="text" id="reset-code" placeholder="Reset Code" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="reset-new-password" placeholder="New Password" required>
+                </div>
+                <button type="submit">
+                    <i class="fas fa-check"></i> Reset Password
+                </button>
+                <div class="auth-error" id="reset-error" style="display: none;"></div>
+                <div class="auth-success" id="reset-success" style="display: none;"></div>
+            </form>
+
+            <div class="auth-links">
+                <a class="auth-link" id="back-to-login-link3">
+                    <i class="fas fa-arrow-left"></i> Back to Login
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="container" style="display: none;">
+        <header>
+            <div class="header-content">
+                <div class="header-title">
+                    <h1>
+                        <i class="fas fa-gas-pump"></i>
+                        MOONRIDER
+                        <i class="fas fa-wrench"></i>
+                    </h1>
+                    <p>Find gas stations and repair shops in Bulan, Sorsogon</p>
+                </div>
+                <div class="user-controls">
+                    <div id="user-controls" style="display: none;">
+                        <span class="user-welcome" id="user-welcome"></span>
+                        <button class="user-profile-btn" id="user-profile-btn" title="User Profile">
+                            <i class="fas fa-user-circle"></i>
+                        </button>
+                    </div>
+                    <button class="btn btn-primary" id="login-btn" style="display: none;">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="category-select">
+                    <i class="fas fa-filter"></i> Filter:
+                </label>
+                <select id="category-select">
+                    <option value="all">All Locations</option>
+                    <option value="gasoline">Gas Stations</option>
+                    <option value="repair">Repair Shops</option>
+                </select>
+            </div>
+
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="Search locations...">
+            </div>
+
+            <button id="locate-me">
+                <i class="fas fa-location-arrow"></i> <span>Locate Me</span>
+            </button>
+
+            <button id="clear-route" style="display: none;">
+                <i class="fas fa-times"></i> <span>Clear Route</span>
+            </button>
+        </div>
+
+        <div class="main-content">
+            <div id="map">
+                <div class="map-loading" id="map-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading map data...</p>
+                </div>
+            </div>
+
+            <!-- Floating Action Button -->
+            <button class="fab" id="fab-locate" title="Locate Me">
+                <i class="fas fa-location-arrow"></i>
+            </button>
+
+            <!-- Route Summary -->
+            <div class="route-summary" id="route-summary">
+                <div class="route-summary-header">
+                    <h3 class="route-summary-title">Route Summary</h3>
+                    <button class="route-summary-close" id="route-summary-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="route-summary-details">
+                    <div class="route-summary-item">
+                        <i class="fas fa-road"></i>
+                        <span id="route-distance">0 km</span>
+                    </div>
+                    <div class="route-summary-item">
+                        <i class="fas fa-clock"></i>
+                        <span id="route-time">0 min</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Profile Page -->
+            <div class="profile-page" id="profile-page">
+                <div class="profile-header">
+                    <div class="profile-header-content">
+                        <button class="back-btn" id="profile-back-btn">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="profile-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h2 id="profile-name">User Name</h2>
+                            <p id="profile-email">user@example.com</p>
+                        </div>
+                    </div>
+                    <button class="btn logout-btn" id="profile-logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+                
+                <div class="profile-tabs">
+                    <button class="profile-tab active" data-tab="info">
+                        <i class="fas fa-user"></i> Info
+                    </button>
+                    <button class="profile-tab" data-tab="history">
+                        <i class="fas fa-history"></i> History
+                    </button>
+                    <button class="profile-tab" data-tab="favorites">
+                        <i class="fas fa-heart"></i> Favorites
+                    </button>
+                </div>
+                
+                <div class="profile-content">
+                    <!-- User Info Tab -->
+                    <div class="profile-section active" id="profile-info">
+                        <div class="profile-item">
+                            <i class="fas fa-user"></i>
+                            <div class="profile-item-content">
+                                <div class="profile-item-title" id="profile-info-name">User Name</div>
+                                <div class="profile-item-subtitle">Full Name</div>
+                            </div>
+                        </div>
+                        
+                        <div class="profile-item">
+                            <i class="fas fa-envelope"></i>
+                            <div class="profile-item-content">
+                                <div class="profile-item-title" id="profile-info-email">user@example.com</div>
+                                <div class="profile-item-subtitle">Email Address</div>
+                            </div>
+                        </div>
+                        
+                        <div class="profile-item">
+                            <i class="fas fa-calendar-alt"></i>
+                            <div class="profile-item-content">
+                                <div class="profile-item-title" id="profile-info-joined">Joined January 2023</div>
+                                <div class="profile-item-subtitle">Member Since</div>
+                            </div>
+                        </div>
+                        
+                        <div class="profile-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div class="profile-item-content">
+                                <div class="profile-item-title" id="profile-info-location">Bulan, Sorsogon</div>
+                                <div class="profile-item-subtitle">Default Location</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- History Tab -->
+                    <div class="profile-section" id="profile-history">
+                        <div class="empty-state" id="history-empty-state">
+                            <i class="fas fa-history"></i>
+                            <h3>No History Yet</h3>
+                            <p>Your visited locations will appear here</p>
+                            <button class="btn btn-primary" onclick="hideProfilePage()">Explore Locations</button>
+                        </div>
+                        
+                        <div id="history-list" style="display: none;">
+                            <!-- History items will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Favorites Tab -->
+                    <div class="profile-section" id="profile-favorites">
+                        <div class="empty-state" id="favorites-empty-state">
+                            <i class="fas fa-heart"></i>
+                            <h3>No Favorites Yet</h3>
+                            <p>Your favorite locations will appear here</p>
+                            <button class="btn btn-primary" onclick="hideProfilePage()">Explore Locations</button>
+                        </div>
+                        
+                        <div id="favorites-list" style="display: none;">
+                            <!-- Favorite items will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Sheet for Mobile -->
+            <div class="bottom-sheet" id="bottom-sheet">
+                <div class="bottom-sheet-header">
+                    <div class="swipe-indicator"></div>
+                    <div>
+                        <h3 class="bottom-sheet-title" id="bottom-sheet-title">Location Name</h3>
+                        <span class="location-type" id="bottom-sheet-type">Gas Station</span>
+                    </div>
+                    <button class="close-card" id="close-bottom-sheet">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="bottom-sheet-body">
+                    
+                    <div class="detail-item">
+                        <i class="fas fa-map-marker-alt detail-icon"></i>
+                        <div class="detail-text" id="bottom-sheet-address">Address will appear here</div>
+                    </div>
+                    
+                    <div class="detail-item" id="bottom-sheet-contact-info" style="display: none;">
+                        <i class="fas fa-phone detail-icon"></i>
+                        <div class="detail-text" id="bottom-sheet-contact">Contact information</div>
+                    </div>
+                    
+                    <div class="detail-item" id="bottom-sheet-hours-info" style="display: none;">
+                        <i class="fas fa-clock detail-icon"></i>
+                        <div class="detail-text" id="bottom-sheet-hours">Operating hours</div>
+                    </div>
+                    
+                    <div class="detail-item" id="bottom-sheet-fuel-info" style="display: none;">
+                        <i class="fas fa-gas-pump detail-icon"></i>
+                        <div class="detail-text">
+                            <div>Fuel Types:</div>
+                            <div class="fuel-types-list" id="bottom-sheet-fuel-types"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-item" id="bottom-sheet-services-info" style="display: none;">
+                        <i class="fas fa-tools detail-icon"></i>
+                        <div class="detail-text">
+                            <div>Services Offered:</div>
+                            <div class="services-list" id="bottom-sheet-services"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="bottom-sheet-navigate-btn">
+                            <i class="fas fa-route"></i> Navigate
+                        </button>
+                        <button class="btn btn-favorite" id="bottom-sheet-favorite-btn">
+                            <i class="fas fa-heart"></i> Favorite
+                        </button>
+                        <button class="btn btn-success btn-full" id="bottom-sheet-checkin-btn">
+                            <i class="fas fa-check-circle"></i> Check In
+                        </button>
+                    </div>
+                    
+                    <!-- Reviews Section -->
+                    <div class="reviews-section">
+                        <div class="reviews-header">
+                            <h4>Reviews</h4>
+                            <div class="average-rating">
+                                <span class="stars" id="bottom-sheet-average-rating">★★★★★</span>
+                                <span id="bottom-sheet-review-count">(0)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="reviews-list" id="bottom-sheet-reviews-list">
+                            <!-- Reviews will be populated here -->
+                        </div>
+                        
+                        <!-- Review Form (only for logged-in users) -->
+                        <div class="review-form" id="bottom-sheet-review-form" style="display: none;">
+                            <h5>Write a Review</h5>
+                            <div class="rating-stars" id="bottom-sheet-rating-stars">
+                                <i class="fas fa-star rating-star" data-rating="1"></i>
+                                <i class="fas fa-star rating-star" data-rating="2"></i>
+                                <i class="fas fa-star rating-star" data-rating="3"></i>
+                                <i class="fas fa-star rating-star" data-rating="4"></i>
+                                <i class="fas fa-star rating-star" data-rating="5"></i>
+                            </div>
+                            <textarea class="review-textarea" id="bottom-sheet-review-text" placeholder="Share your experience..."></textarea>
+                            <button class="btn btn-primary btn-full" id="bottom-sheet-submit-review-btn">
+                                <i class="fas fa-paper-plane"></i> Submit Review
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Desktop Info Card -->
+            <div class="info-card" id="info-card">
+                <div class="info-card-header">
+                    <div>
+                        <h3 class="info-card-title" id="info-title">Location Name</h3>
+                        <span class="location-type" id="info-type">Gas Station</span>
+                    </div>
+                    <button class="close-card" id="close-card">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="info-card-body">
+                    
+                    <div class="detail-item">
+                        <i class="fas fa-map-marker-alt detail-icon"></i>
+                        <div class="detail-text" id="info-address">Address will appear here</div>
+                    </div>
+                    
+                    <div class="detail-item" id="contact-info" style="display: none;">
+                        <i class="fas fa-phone detail-icon"></i>
+                        <div class="detail-text" id="info-contact">Contact information</div>
+                    </div>
+                    
+                    <div class="detail-item" id="hours-info" style="display: none;">
+                        <i class="fas fa-clock detail-icon"></i>
+                        <div class="detail-text" id="info-hours">Operating hours</div>
+                    </div>
+                    
+                    <div class="detail-item" id="fuel-info" style="display: none;">
+                        <i class="fas fa-gas-pump detail-icon"></i>
+                        <div class="detail-text">
+                            <div>Fuel Types:</div>
+                            <div class="fuel-types-list" id="info-fuel-types"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-item" id="services-info" style="display: none;">
+                        <i class="fas fa-tools detail-icon"></i>
+                        <div class="detail-text">
+                            <div>Services Offered:</div>
+                            <div class="services-list" id="info-services"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="navigate-btn">
+                            <i class="fas fa-route"></i> Navigate
+                        </button>
+                        <button class="btn btn-favorite" id="favorite-btn">
+                            <i class="fas fa-heart"></i> Favorite
+                        </button>
+                        <button class="btn btn-success btn-full" id="checkin-btn">
+                            <i class="fas fa-check-circle"></i> Check In
+                        </button>
+                    </div>
+                    
+                    <!-- Reviews Section -->
+                    <div class="reviews-section">
+                        <div class="reviews-header">
+                            <h4>Reviews</h4>
+                            <div class="average-rating">
+                                <span class="stars" id="average-rating">★★★★★</span>
+                                <span id="review-count">(0)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="reviews-list" id="reviews-list">
+                            <!-- Reviews will be populated here -->
+                        </div>
+                        
+                        <!-- Review Form (only for logged-in users) -->
+                        <div class="review-form" id="review-form" style="display: none;">
+                            <h5>Write a Review</h5>
+                            <div class="rating-stars" id="rating-stars">
+                                <i class="fas fa-star rating-star" data-rating="1"></i>
+                                <i class="fas fa-star rating-star" data-rating="2"></i>
+                                <i class="fas fa-star rating-star" data-rating="3"></i>
+                                <i class="fas fa-star rating-star" data-rating="4"></i>
+                                <i class="fas fa-star rating-star" data-rating="5"></i>
+                            </div>
+                            <textarea class="review-textarea" id="review-text" placeholder="Share your experience..."></textarea>
+                            <button class="btn btn-primary btn-full" id="submit-review-btn">
+                                <i class="fas fa-paper-plane"></i> Submit Review
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    
+    <!-- Leaflet Routing Machine JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        // IMPORTANT: Update this to match your server URL
+        const API_BASE = 'http://localhost:3001';
+
+        // Application State
+        const appState = {
+            currentUser: null,
+            isGuest: false,
+            map: null,
+            userMarker: null,
+            routingControl: null,
+            markers: [],
+            locations: [],
+            currentLocation: null,
+            dataLoaded: false,
+            favorites: [],
+            history: [],
+            currentRating: 0,
+            watchId: null,
+            isMobile: window.innerWidth < 768
+        };
+
+        // Utility Functions
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 4000);
+        }
+
+        function showError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(elementId, message) {
+            const successElement = document.getElementById(elementId);
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+            setTimeout(() => {
+                successElement.style.display = 'none';
+            }, 5000);
+        }
+
+        // Profile Page Functions
+        function showProfilePage() {
+            document.getElementById('profile-page').classList.add('active');
+            updateProfileData();
+        }
+
+        function hideProfilePage() {
+            document.getElementById('profile-page').classList.remove('active');
+        }
+
+        function updateProfileData() {
+            if (appState.currentUser) {
+                // Update profile header
+                document.getElementById('profile-name').textContent = appState.currentUser.name;
+                document.getElementById('profile-email').textContent = appState.currentUser.email;
+                
+                // Update profile info tab
+                document.getElementById('profile-info-name').textContent = appState.currentUser.name;
+                document.getElementById('profile-info-email').textContent = appState.currentUser.email;
+                document.getElementById('profile-info-joined').textContent = `Joined ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+                
+                // Load history and favorites
+                loadUserHistory();
+                loadUserFavorites();
+            }
+        }
+
+        function loadUserHistory() {
+            // For demo purposes, we'll show some sample history
+            // In a real app, this would come from the API
+            const historyList = document.getElementById('history-list');
+            const emptyState = document.getElementById('history-empty-state');
+            
+            if (appState.history && appState.history.length > 0) {
+                emptyState.style.display = 'none';
+                historyList.style.display = 'block';
+                
+                // Populate history list
+                historyList.innerHTML = appState.history.map(item => `
+                    <div class="history-item">
+                        <div class="history-item-header">
+                            <div class="history-item-name">${item.name}</div>
+                            <div class="history-item-date">${item.date}</div>
+                        </div>
+                        <div class="history-item-address">${item.address}</div>
+                    </div>
+                `).join('');
+            } else {
+                emptyState.style.display = 'block';
+                historyList.style.display = 'none';
+            }
+        }
+
+        function loadUserFavorites() {
+            const favoritesList = document.getElementById('favorites-list');
+            const emptyState = document.getElementById('favorites-empty-state');
+            
+            if (appState.favorites && appState.favorites.length > 0) {
+                emptyState.style.display = 'none';
+                favoritesList.style.display = 'block';
+                
+                // Populate favorites list
+                favoritesList.innerHTML = appState.favorites.map(fav => {
+                    const location = appState.locations.find(loc => loc.id === fav.location_id);
+                    if (location) {
+                        return `
+                            <div class="favorite-item">
+                                <div class="favorite-item-header">
+                                    <div class="favorite-item-name">${location.name}</div>
+                                    <div class="favorite-item-type">${location.type === 'gasoline' ? 'Gas Station' : 'Repair Shop'}</div>
+                                </div>
+                                <div class="favorite-item-address">${location.address}</div>
+                            </div>
+                        `;
+                    }
+                    return '';
+                }).join('');
+            } else {
+                emptyState.style.display = 'block';
+                favoritesList.style.display = 'none';
+            }
+        }
+
+        // Tab switching for profile page
+        function switchProfileTab(tabName) {
+            // Update active tab
+            document.querySelectorAll('.profile-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`.profile-tab[data-tab="${tabName}"]`).classList.add('active');
+            
+            // Update active section
+            document.querySelectorAll('.profile-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(`profile-${tabName}`).classList.add('active');
+        }
+
+        // Authentication Functions
+        async function login(email, password) {
+            try {
+                // FIXED: Use both endpoints for compatibility
+                let response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                // If auth endpoint fails, try the regular endpoint
+                if (!response.ok) {
+                    response = await fetch(`${API_BASE}/api/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                }
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Login failed');
+                }
+
+                // Store token and user data
+                appState.currentUser = data.user;
+                appState.currentUser.token = data.token;
+                
+                showSuccess('login-success', 'Login successful!');
+                setTimeout(() => showMainApp(), 1000);
+            } catch (error) {
+                showError('login-error', error.message);
+            }
+        }
+
+        async function register(name, email, password, confirmPassword) {
+            try {
+                if (password !== confirmPassword) {
+                    throw new Error('Passwords do not match');
+                }
+
+                // FIXED: Use both endpoints for compatibility
+                let response = await fetch(`${API_BASE}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                // If auth endpoint fails, try the regular endpoint
+                if (!response.ok) {
+                    response = await fetch(`${API_BASE}/api/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, password })
+                    });
+                }
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Registration failed');
+                }
+
+                showSuccess('signup-success', 'Account created! Redirecting to login...');
+                setTimeout(() => {
+                    document.getElementById('create-account-container').style.display = 'none';
+                    document.getElementById('login-container').style.display = 'block';
+                    document.getElementById('signup-form').reset();
+                }, 1500);
+            } catch (error) {
+                showError('signup-error', error.message);
+            }
+        }
+
+        async function forgotPassword(email) {
+            try {
+                // FIXED: Use both endpoints for compatibility
+                let response = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                // If auth endpoint fails, try the regular endpoint
+                if (!response.ok) {
+                    response = await fetch(`${API_BASE}/api/forgot-password`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                }
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to send reset code');
+                }
+
+                appState.resetEmail = email;
+                showSuccess('forgot-success', `Reset code sent${data.token ? ': ' + data.token : ''} (Check console in dev mode)`);
+                
+                setTimeout(() => {
+                    document.getElementById('forgot-password-container').style.display = 'none';
+                    document.getElementById('reset-password-container').style.display = 'block';
+                }, 2000);
+            } catch (error) {
+                showError('forgot-error', error.message);
+            }
+        }
+
+        async function resetPassword(code, newPassword) {
+            try {
+                if (!appState.resetEmail) {
+                    throw new Error('Please request a reset code first');
+                }
+
+                // FIXED: Use both endpoints for compatibility
+                let response = await fetch(`${API_BASE}/api/auth/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: appState.resetEmail, 
+                        code, 
+                        newPassword 
+                    })
+                });
+
+                // If auth endpoint fails, try the regular endpoint
+                if (!response.ok) {
+                    response = await fetch(`${API_BASE}/api/reset-password`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            email: appState.resetEmail, 
+                            code, 
+                            newPassword 
+                        })
+                    });
+                }
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Password reset failed');
+                }
+
+                showSuccess('reset-success', 'Password reset successful! Redirecting...');
+                appState.resetEmail = null;
+                
+                setTimeout(() => {
+                    document.getElementById('reset-password-container').style.display = 'none';
+                    document.getElementById('login-container').style.display = 'block';
+                    document.getElementById('reset-password-form').reset();
+                }, 1500);
+            } catch (error) {
+                showError('reset-error', error.message);
+            }
+        }
+
+        function showMainApp() {
+            const authScreen = document.getElementById('auth-screen');
+            const container = document.querySelector('.container');
+            
+            authScreen.classList.add('hidden');
+            container.style.display = 'flex';
+            
+            setTimeout(() => {
+                container.classList.add('visible');
+                initMap();
+                updateUI();
+            }, 100);
+        }
+
+        function updateUI() {
+            const userControls = document.getElementById('user-controls');
+            const userWelcome = document.getElementById('user-welcome');
+            const loginBtn = document.getElementById('login-btn');
+
+            if (appState.currentUser) {
+                userControls.style.display = 'flex';
+                userWelcome.textContent = `Welcome, ${appState.currentUser.name}`;
+                loginBtn.style.display = 'none';
+                loadUserData();
+            } else {
+                userControls.style.display = 'none';
+                loginBtn.style.display = 'flex';
+            }
+        }
+
+        // Load user data (favorites, history) - FIXED
+        async function loadUserData() {
+            if (!appState.currentUser) return;
+            
+            try {
+                const token = appState.currentUser.token;
+                
+                // Load favorites
+                const favResponse = await fetch(`${API_BASE}/api/favorites`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (favResponse.ok) {
+                    const favData = await favResponse.json();
+                    appState.favorites = favData || [];
+                    console.log('Loaded favorites:', appState.favorites);
+                } else {
+                    console.error('Failed to load favorites');
+                }
+                
+                // Load history (for demo, we'll create some sample data)
+                appState.history = [
+                    {
+                        name: "WW Gas Station",
+                        address: "Mabbite-Sisigon-Bulan Road, Bulan, Sorsogon",
+                        date: "2 days ago"
+                    },
+                    {
+                        name: "Bulan Auto Repair",
+                        address: "Rizal Street, Bulan, Sorsogon",
+                        date: "1 week ago"
+                    }
+                ];
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+
+        // Event Listeners for Auth Forms
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            login(email, password);
+        });
+
+        document.getElementById('signup-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('signup-name').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm-password').value;
+            register(name, email, password, confirmPassword);
+        });
+
+        document.getElementById('forgot-password-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('forgot-email').value;
+            forgotPassword(email);
+        });
+
+        document.getElementById('reset-password-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = document.getElementById('reset-code').value;
+            const newPassword = document.getElementById('reset-new-password').value;
+            resetPassword(code, newPassword);
+        });
+
+        // Navigation between auth forms
+        document.getElementById('create-account-link').addEventListener('click', () => {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('create-account-container').style.display = 'block';
+        });
+
+        document.getElementById('forgot-password-link').addEventListener('click', () => {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('forgot-password-container').style.display = 'block';
+        });
+
+        document.getElementById('back-to-login-link').addEventListener('click', () => {
+            document.getElementById('create-account-container').style.display = 'none';
+            document.getElementById('login-container').style.display = 'block';
+        });
+
+        document.getElementById('back-to-login-link2').addEventListener('click', () => {
+            document.getElementById('forgot-password-container').style.display = 'none';
+            document.getElementById('login-container').style.display = 'block';
+        });
+
+        document.getElementById('back-to-login-link3').addEventListener('click', () => {
+            document.getElementById('reset-password-container').style.display = 'none';
+            document.getElementById('login-container').style.display = 'block';
+        });
+
+        document.getElementById('skip-auth').addEventListener('click', () => {
+            appState.isGuest = true;
+            showMainApp();
+        });
+
+        document.getElementById('user-profile-btn').addEventListener('click', showProfilePage);
+        document.getElementById('profile-back-btn').addEventListener('click', hideProfilePage);
+
+        document.getElementById('profile-logout-btn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout?')) {
+                appState.currentUser = null;
+                localStorage.removeItem('currentUser');
+                location.reload();
+            }
+        });
+
+        document.getElementById('login-btn').addEventListener('click', () => {
+            document.querySelector('.container').style.display = 'none';
+            document.getElementById('auth-screen').classList.remove('hidden');
+        });
+
+        // Profile tab switching
+        document.querySelectorAll('.profile-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.getAttribute('data-tab');
+                switchProfileTab(tabName);
+            });
+        });
+
+        // Map Functions
+        function initMap() {
+            // Initialize map centered on Bulan, Sorsogon
+            appState.map = L.map('map').setView([12.6711, 123.8769], 14);
+
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(appState.map);
+
+            // Fetch and add location markers
+            fetchLocationsFromAPI().then(() => {
+                addLocationMarkers();
+            });
+
+            // Close info card when clicking on map
+            appState.map.on('click', function() {
+                hideLocationInfo();
+                hideRouteSummary();
+            });
+        }
+
+        async function fetchLocationsFromAPI() {
+            try {
+                showToast('Loading locations...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/locations`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                appState.locations = data.locations || [];
+                appState.dataLoaded = true;
+                
+                document.getElementById('map-loading').style.display = 'none';
+                showToast(`Loaded ${appState.locations.length} locations`, 'success');
+            } catch (error) {
+                console.error('Error fetching locations:', error);
+                document.getElementById('map-loading').style.display = 'none';
+                showToast('Failed to load locations. Using demo data.', 'warning');
+                
+                // Fallback to demo data if API fails
+                appState.locations = [
+                    {
+                        id: 1,
+                        name: "WW Gas Station",
+                        type: "gasoline",
+                        lat: 12.6711,
+                        lng: 123.8769,
+                        address: "Mabbite-Sisigon-Bulan Road, Bulan, Sorsogon",
+                        contact: "+63 912 345 6789",
+                        operating_hours: "24/7",
+                        fuel_types: "Premium, Diesel, Unleaded",
+                        description: "Full-service gas station with convenience store"
+                    },
+                    {
+                        id: 2,
+                        name: "Bulan Auto Repair",
+                        type: "repair",
+                        lat: 12.6689,
+                        lng: 123.8792,
+                        address: "Rizal Street, Bulan, Sorsogon",
+                        contact: "+63 923 456 7890",
+                        operating_hours: "8:00 AM - 6:00 PM",
+                        services_offered: "Oil Change, Tire Repair, Brake Service",
+                        description: "Professional auto repair services"
+                    },
+                    {
+                        id: 3,
+                        name: "PetroGas Station",
+                        type: "gasoline",
+                        lat: 12.6735,
+                        lng: 123.8741,
+                        address: "National Highway, Bulan, Sorsogon",
+                        contact: "+63 934 567 8901",
+                        operating_hours: "5:00 AM - 10:00 PM",
+                        fuel_types: "Premium, Diesel, Unleaded, LPG",
+                        description: "Modern gas station with car wash"
+                    }
+                ];
+                appState.dataLoaded = true;
+            }
+        }
+
+        function addLocationMarkers() {
+            // Clear existing markers
+            appState.markers.forEach(marker => appState.map.removeLayer(marker));
+            appState.markers = [];
+
+            const filter = document.getElementById('category-select').value;
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+
+            let locationsToShow = appState.locations;
+
+            if (filter !== 'all') {
+                locationsToShow = locationsToShow.filter(loc => loc.type === filter);
+            }
+
+            if (searchTerm) {
+                locationsToShow = locationsToShow.filter(loc => 
+                    loc.name.toLowerCase().includes(searchTerm) ||
+                    loc.address.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            locationsToShow.forEach(location => {
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background-color: ${location.type === 'gasoline' ? '#667eea' : '#11998e'}; 
+                        width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; 
+                        justify-content: center; color: white; font-size: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                        <i class="fas fa-${location.type === 'gasoline' ? 'gas-pump' : 'wrench'}"></i>
+                        </div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                const marker = L.marker([location.lat, location.lng], { icon })
+                    .addTo(appState.map)
+                    .bindPopup(`<strong>${location.name}</strong><br>${location.address}`);
+
+                marker.on('click', () => {
+                    showLocationInfo(location);
+                });
+
+                appState.markers.push(marker);
+            });
+        }
+
+        // Show location info - UPDATED FOR MOBILE/DESKTOP
+        function showLocationInfo(location) {
+            if (appState.isMobile) {
+                showMobileLocationInfo(location);
+            } else {
+                showDesktopLocationInfo(location);
+            }
+            
+            // Record view
+            recordView(location.id);
+        }
+
+        function showMobileLocationInfo(location) {
+            const bottomSheet = document.getElementById('bottom-sheet');
+            const bottomSheetTitle = document.getElementById('bottom-sheet-title');
+            const bottomSheetType = document.getElementById('bottom-sheet-type');
+            const bottomSheetAddress = document.getElementById('bottom-sheet-address');
+            const bottomSheetContact = document.getElementById('bottom-sheet-contact');
+            const bottomSheetHours = document.getElementById('bottom-sheet-hours');
+            const bottomSheetFuelTypes = document.getElementById('bottom-sheet-fuel-types');
+            const bottomSheetServices = document.getElementById('bottom-sheet-services');
+            const bottomSheetContactInfo = document.getElementById('bottom-sheet-contact-info');
+            const bottomSheetHoursInfo = document.getElementById('bottom-sheet-hours-info');
+            const bottomSheetFuelInfo = document.getElementById('bottom-sheet-fuel-info');
+            const bottomSheetServicesInfo = document.getElementById('bottom-sheet-services-info');
+            const bottomSheetNavigateBtn = document.getElementById('bottom-sheet-navigate-btn');
+            const bottomSheetFavoriteBtn = document.getElementById('bottom-sheet-favorite-btn');
+            const bottomSheetCheckinBtn = document.getElementById('bottom-sheet-checkin-btn');
+            const bottomSheetReviewForm = document.getElementById('bottom-sheet-review-form');
+
+            // Set basic info
+            bottomSheetTitle.textContent = location.name;
+            bottomSheetType.textContent = location.type === 'gasoline' ? 'Gas Station' : 'Repair Shop';
+            bottomSheetAddress.textContent = location.address;
+
+            // Show/hide contact information
+            if (location.contact) {
+                bottomSheetContact.textContent = location.contact;
+                bottomSheetContactInfo.style.display = 'flex';
+            } else {
+                bottomSheetContactInfo.style.display = 'none';
+            }
+
+            // Show/hide operating hours
+            if (location.operating_hours) {
+                bottomSheetHours.textContent = location.operating_hours;
+                bottomSheetHoursInfo.style.display = 'flex';
+            } else {
+                bottomSheetHoursInfo.style.display = 'none';
+            }
+
+            // Show/hide fuel types (for gas stations)
+            if (location.type === 'gasoline' && location.fuel_types) {
+                const fuelTypes = location.fuel_types.split(',').map(type => type.trim());
+                bottomSheetFuelTypes.innerHTML = fuelTypes.map(type => 
+                    `<span class="fuel-tag">${type}</span>`
+                ).join('');
+                bottomSheetFuelInfo.style.display = 'flex';
+            } else {
+                bottomSheetFuelInfo.style.display = 'none';
+            }
+
+            // Show/hide services (for repair shops)
+            if (location.type === 'repair' && location.services_offered) {
+                const services = location.services_offered.split(',').map(service => service.trim());
+                bottomSheetServices.innerHTML = services.map(service => 
+                    `<span class="service-tag">${service}</span>`
+                ).join('');
+                bottomSheetServicesInfo.style.display = 'flex';
+            } else {
+                bottomSheetServicesInfo.style.display = 'none';
+            }
+
+            // Description removed from mobile UI
+
+            // Update favorite button
+            const isFavorite = appState.favorites.some(fav => fav.location_id === location.id);
+            bottomSheetFavoriteBtn.innerHTML = `<i class="fas fa-heart"></i> ${isFavorite ? 'Remove Favorite' : 'Add to Favorites'}`;
+            bottomSheetFavoriteBtn.classList.toggle('active', isFavorite);
+
+            // Update button actions
+            bottomSheetNavigateBtn.onclick = () => navigateToLocation(location.lat, location.lng);
+            bottomSheetFavoriteBtn.onclick = () => toggleFavorite(location.id);
+            bottomSheetCheckinBtn.onclick = () => checkIn(location.id);
+
+            // Show/hide review form
+            if (appState.currentUser) {
+                bottomSheetReviewForm.style.display = 'block';
+                setupMobileReviewForm(location.id);
+            } else {
+                bottomSheetReviewForm.style.display = 'none';
+            }
+
+            // Load reviews
+            loadMobileReviews(location.id);
+
+            // Show the bottom sheet
+            bottomSheet.classList.add('active');
+            appState.currentLocation = location;
+        }
+
+        function showDesktopLocationInfo(location) {
+            const infoCard = document.getElementById('info-card');
+            const infoTitle = document.getElementById('info-title');
+            const infoType = document.getElementById('info-type');
+            const infoAddress = document.getElementById('info-address');
+            const infoContact = document.getElementById('info-contact');
+            const infoHours = document.getElementById('info-hours');
+            const infoFuelTypes = document.getElementById('info-fuel-types');
+            const infoServices = document.getElementById('info-services');
+            const contactInfo = document.getElementById('contact-info');
+            const hoursInfo = document.getElementById('hours-info');
+            const fuelInfo = document.getElementById('fuel-info');
+            const servicesInfo = document.getElementById('services-info');
+            const navigateBtn = document.getElementById('navigate-btn');
+            const favoriteBtn = document.getElementById('favorite-btn');
+            const checkinBtn = document.getElementById('checkin-btn');
+            const reviewForm = document.getElementById('review-form');
+
+            // Set basic info
+            infoTitle.textContent = location.name;
+            infoType.textContent = location.type === 'gasoline' ? 'Gas Station' : 'Repair Shop';
+            infoAddress.textContent = location.address;
+
+            // Show/hide contact information
+            if (location.contact) {
+                infoContact.textContent = location.contact;
+                contactInfo.style.display = 'flex';
+            } else {
+                contactInfo.style.display = 'none';
+            }
+
+            // Show/hide operating hours
+            if (location.operating_hours) {
+                infoHours.textContent = location.operating_hours;
+                hoursInfo.style.display = 'flex';
+            } else {
+                hoursInfo.style.display = 'none';
+            }
+
+            // Show/hide fuel types (for gas stations)
+            if (location.type === 'gasoline' && location.fuel_types) {
+                const fuelTypes = location.fuel_types.split(',').map(type => type.trim());
+                infoFuelTypes.innerHTML = fuelTypes.map(type => 
+                    `<span class="fuel-tag">${type}</span>`
+                ).join('');
+                fuelInfo.style.display = 'flex';
+            } else {
+                fuelInfo.style.display = 'none';
+            }
+
+            // Show/hide services (for repair shops)
+            if (location.type === 'repair' && location.services_offered) {
+                const services = location.services_offered.split(',').map(service => service.trim());
+                infoServices.innerHTML = services.map(service => 
+                    `<span class="service-tag">${service}</span>`
+                ).join('');
+                servicesInfo.style.display = 'flex';
+            } else {
+                servicesInfo.style.display = 'none';
+            }
+
+            // Description removed from desktop UI
+
+            // Update favorite button
+            const isFavorite = appState.favorites.some(fav => fav.location_id === location.id);
+            favoriteBtn.innerHTML = `<i class="fas fa-heart"></i> ${isFavorite ? 'Remove Favorite' : 'Add to Favorites'}`;
+            favoriteBtn.classList.toggle('active', isFavorite);
+
+            // Update button actions
+            navigateBtn.onclick = () => navigateToLocation(location.lat, location.lng);
+            favoriteBtn.onclick = () => toggleFavorite(location.id);
+            checkinBtn.onclick = () => checkIn(location.id);
+
+            // Show/hide review form
+            if (appState.currentUser) {
+                reviewForm.style.display = 'block';
+                setupReviewForm(location.id);
+            } else {
+                reviewForm.style.display = 'none';
+            }
+
+            // Load reviews
+            loadReviews(location.id);
+
+            // Show the info card
+            infoCard.classList.add('active');
+            appState.currentLocation = location;
+        }
+
+        function hideLocationInfo() {
+            if (appState.isMobile) {
+                document.getElementById('bottom-sheet').classList.remove('active');
+            } else {
+                document.getElementById('info-card').classList.remove('active');
+            }
+            appState.currentLocation = null;
+        }
+
+        // Close card buttons
+        document.getElementById('close-card').addEventListener('click', hideLocationInfo);
+        document.getElementById('close-bottom-sheet').addEventListener('click', hideLocationInfo);
+
+        // Prevent info card from closing when clicking inside it
+        document.getElementById('info-card').addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        document.getElementById('bottom-sheet').addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        // Record view function
+        async function recordView(locationId) {
+            try {
+                const token = appState.currentUser ? appState.currentUser.token : null;
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                await fetch(`${API_BASE}/api/locations/${locationId}/view`, {
+                    method: 'POST',
+                    headers: headers
+                });
+            } catch (error) {
+                console.error('Error recording view:', error);
+            }
+        }
+
+        // Toggle favorite - COMPLETELY FIXED
+        async function toggleFavorite(locationId) {
+            if (!appState.currentUser) {
+                showToast('Please log in to use favorites', 'warning');
+                return;
+            }
+
+            try {
+                const token = appState.currentUser.token;
+                const isCurrentlyFavorite = appState.favorites.some(fav => fav.location_id === locationId);
+                
+                let response;
+                
+                if (isCurrentlyFavorite) {
+                    // FIXED: Remove from favorites - use correct endpoint format
+                    response = await fetch(`${API_BASE}/api/favorites/${locationId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                } else {
+                    // Add to favorites
+                    response = await fetch(`${API_BASE}/api/favorites`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ location_id: locationId })
+                    });
+                }
+
+                if (response.ok) {
+                    if (isCurrentlyFavorite) {
+                        // Remove from favorites
+                        appState.favorites = appState.favorites.filter(fav => fav.location_id !== locationId);
+                        showToast('Removed from favorites', 'success');
+                    } else {
+                        // Add to favorites
+                        appState.favorites.push({ location_id: locationId });
+                        showToast('Added to favorites', 'success');
+                    }
+                    
+                    // Update favorite button
+                    if (appState.isMobile) {
+                        const favoriteBtn = document.getElementById('bottom-sheet-favorite-btn');
+                        const isNowFavorite = !isCurrentlyFavorite;
+                        favoriteBtn.innerHTML = `<i class="fas fa-heart"></i> ${isNowFavorite ? 'Remove Favorite' : 'Add to Favorites'}`;
+                        favoriteBtn.classList.toggle('active', isNowFavorite);
+                    } else {
+                        const favoriteBtn = document.getElementById('favorite-btn');
+                        const isNowFavorite = !isCurrentlyFavorite;
+                        favoriteBtn.innerHTML = `<i class="fas fa-heart"></i> ${isNowFavorite ? 'Remove Favorite' : 'Add to Favorites'}`;
+                        favoriteBtn.classList.toggle('active', isNowFavorite);
+                    }
+                    
+                    // Update profile favorites if profile is open
+                    if (document.getElementById('profile-page').classList.contains('active')) {
+                        loadUserFavorites();
+                    }
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to update favorite');
+                }
+            } catch (error) {
+                console.error('Error toggling favorite:', error);
+                showToast(error.message || 'Failed to update favorite', 'error');
+            }
+        }
+
+        // Check in function - COMPLETELY FIXED
+        async function checkIn(locationId) {
+            if (!appState.currentUser) {
+                showToast('Please log in to check in', 'warning');
+                return;
+            }
+
+            try {
+                const token = appState.currentUser.token;
+                
+                const response = await fetch(`${API_BASE}/api/locations/${locationId}/visit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    showToast('Checked in successfully!', 'success');
+                    
+                    // Update the location's visit count in local state
+                    const location = appState.locations.find(loc => loc.id === locationId);
+                    if (location) {
+                        location.visits = (location.visits || 0) + 1;
+                        
+                        // Add to history
+                        appState.history.unshift({
+                            name: location.name,
+                            address: location.address,
+                            date: 'Just now'
+                        });
+                        
+                        // Update profile history if profile is open
+                        if (document.getElementById('profile-page').classList.contains('active')) {
+                            loadUserHistory();
+                        }
+                    }
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to check in');
+                }
+            } catch (error) {
+                console.error('Error checking in:', error);
+                showToast(error.message || 'Failed to check in', 'error');
+            }
+        }
+
+        // Load reviews for a location - MOBILE
+        async function loadMobileReviews(locationId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/locations/${locationId}/reviews`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const reviews = data.reviews || [];
+                    
+                    // Update average rating
+                    const averageRating = document.getElementById('bottom-sheet-average-rating');
+                    const reviewCount = document.getElementById('bottom-sheet-review-count');
+                    const reviewsList = document.getElementById('bottom-sheet-reviews-list');
+                    
+                    if (reviews.length > 0) {
+                        const avgRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+                        averageRating.textContent = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
+                        reviewCount.textContent = `(${reviews.length})`;
+                        
+                        // Populate reviews list
+                        reviewsList.innerHTML = reviews
+                            .map(review => `
+                                <div class="review-item">
+                                    <div class="review-header">
+                                        <span class="review-author">${review.user_name}</span>
+                                        <span class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</span>
+                                    </div>
+                                    <div class="review-text">${review.comment}</div>
+                                    <div class="review-date">${new Date(review.created_at).toLocaleDateString()}</div>
+                                </div>
+                            `)
+                            .join('');
+                    } else {
+                        averageRating.textContent = '☆☆☆☆☆';
+                        reviewCount.textContent = '(0)';
+                        reviewsList.innerHTML = '<p style="text-align: center; color: var(--gray);">No reviews yet</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading reviews:', error);
+            }
+        }
+
+        // Load reviews for a location - DESKTOP
+        async function loadReviews(locationId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/locations/${locationId}/reviews`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const reviews = data.reviews || [];
+                    
+                    // Update average rating
+                    const averageRating = document.getElementById('average-rating');
+                    const reviewCount = document.getElementById('review-count');
+                    const reviewsList = document.getElementById('reviews-list');
+                    
+                    if (reviews.length > 0) {
+                        const avgRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+                        averageRating.textContent = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
+                        reviewCount.textContent = `(${reviews.length})`;
+                        
+                        // Populate reviews list
+                        reviewsList.innerHTML = reviews
+                            .map(review => `
+                                <div class="review-item">
+                                    <div class="review-header">
+                                        <span class="review-author">${review.user_name}</span>
+                                        <span class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</span>
+                                    </div>
+                                    <div class="review-text">${review.comment}</div>
+                                    <div class="review-date">${new Date(review.created_at).toLocaleDateString()}</div>
+                                </div>
+                            `)
+                            .join('');
+                    } else {
+                        averageRating.textContent = '☆☆☆☆☆';
+                        reviewCount.textContent = '(0)';
+                        reviewsList.innerHTML = '<p style="text-align: center; color: var(--gray);">No reviews yet</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading reviews:', error);
+            }
+        }
+
+        // Setup review form - MOBILE
+        function setupMobileReviewForm(locationId) {
+            const ratingStars = document.querySelectorAll('#bottom-sheet-rating-stars .rating-star');
+            const submitReviewBtn = document.getElementById('bottom-sheet-submit-review-btn');
+            
+            // Reset rating
+            appState.currentRating = 0;
+            ratingStars.forEach(star => star.classList.remove('active'));
+            
+            // Rating stars interaction
+            ratingStars.forEach(star => {
+                star.addEventListener('click', function() {
+                    const rating = parseInt(this.getAttribute('data-rating'));
+                    appState.currentRating = rating;
+                    
+                    ratingStars.forEach((s, index) => {
+                        if (index < rating) {
+                            s.classList.add('active');
+                        } else {
+                            s.classList.remove('active');
+                        }
+                    });
+                });
+            });
+            
+            // Submit review
+            submitReviewBtn.onclick = () => submitReview(locationId);
+        }
+
+        // Setup review form - DESKTOP
+        function setupReviewForm(locationId) {
+            const ratingStars = document.querySelectorAll('#rating-stars .rating-star');
+            const submitReviewBtn = document.getElementById('submit-review-btn');
+            
+            // Reset rating
+            appState.currentRating = 0;
+            ratingStars.forEach(star => star.classList.remove('active'));
+            
+            // Rating stars interaction
+            ratingStars.forEach(star => {
+                star.addEventListener('click', function() {
+                    const rating = parseInt(this.getAttribute('data-rating'));
+                    appState.currentRating = rating;
+                    
+                    ratingStars.forEach((s, index) => {
+                        if (index < rating) {
+                            s.classList.add('active');
+                        } else {
+                            s.classList.remove('active');
+                        }
+                    });
+                });
+            });
+            
+            // Submit review
+            submitReviewBtn.onclick = () => submitReview(locationId);
+        }
+
+        // Submit review
+        async function submitReview(locationId) {
+            if (!appState.currentUser) {
+                showToast('Please log in to submit a review', 'warning');
+                return;
+            }
+
+            if (appState.currentRating === 0) {
+                showToast('Please select a rating', 'warning');
+                return;
+            }
+
+            let comment;
+            if (appState.isMobile) {
+                comment = document.getElementById('bottom-sheet-review-text').value.trim();
+            } else {
+                comment = document.getElementById('review-text').value.trim();
+            }
+            
+            try {
+                const token = appState.currentUser.token;
+                
+                const response = await fetch(`${API_BASE}/api/locations/${locationId}/reviews`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        rating: appState.currentRating,
+                        comment: comment
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('Review submitted successfully!', 'success');
+                    
+                    // Reset form
+                    if (appState.isMobile) {
+                        document.getElementById('bottom-sheet-review-text').value = '';
+                    } else {
+                        document.getElementById('review-text').value = '';
+                    }
+                    appState.currentRating = 0;
+                    document.querySelectorAll('.rating-star').forEach(star => star.classList.remove('active'));
+                    
+                    // Reload reviews
+                    if (appState.isMobile) {
+                        loadMobileReviews(locationId);
+                    } else {
+                        loadReviews(locationId);
+                    }
+                } else {
+                    throw new Error('Failed to submit review');
+                }
+            } catch (error) {
+                console.error('Error submitting review:', error);
+                showToast('Failed to submit review', 'error');
+            }
+        }
+
+        // Navigation
+        function navigateToLocation(lat, lng) {
+            if (!appState.userMarker) {
+                showToast('Please enable location first by clicking "Locate Me"', 'warning');
+                return;
+            }
+
+            const userLatLng = appState.userMarker.getLatLng();
+
+            // Remove existing route
+            if (appState.routingControl) {
+                appState.map.removeControl(appState.routingControl);
+            }
+
+            // Create new route - HIDING THE DEFAULT ROUTING CONTROL
+            appState.routingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(userLatLng.lat, userLatLng.lng),
+                    L.latLng(lat, lng)
+                ],
+                routeWhileDragging: true,
+                showAlternatives: false,
+                lineOptions: {
+                    styles: [{ color: '#667eea', weight: 5 }]
+                },
+                createMarker: function() { return null; }, // Remove default markers
+                // Hide the default routing container
+                containerClassName: 'leaflet-routing-container-hide'
+            }).addTo(appState.map);
+
+            // Show route summary with distance and time
+            appState.routingControl.on('routesfound', function(e) {
+                const routes = e.routes;
+                if (routes && routes.length > 0) {
+                    const route = routes[0];
+                    const distance = (route.summary.totalDistance / 1000).toFixed(1);
+                    const time = Math.round(route.summary.totalTime / 60);
+                    
+                    // Update route summary
+                    document.getElementById('route-distance').textContent = `${distance} km`;
+                    document.getElementById('route-time').textContent = `${time} min`;
+                    
+                    // Show route summary
+                    showRouteSummary();
+                }
+            });
+
+            document.getElementById('clear-route').style.display = 'flex';
+            showToast(`Navigating to ${appState.currentLocation.name}`, 'success');
+        }
+
+        function showRouteSummary() {
+            document.getElementById('route-summary').classList.add('active');
+        }
+
+        function hideRouteSummary() {
+            document.getElementById('route-summary').classList.remove('active');
+        }
+
+        // Locate user - IMPROVED ACCURACY
+        function locateUser() {
+            if (navigator.geolocation) {
+                // Stop any existing location watch
+                if (appState.watchId) {
+                    navigator.geolocation.clearWatch(appState.watchId);
+                }
+                
+                // Show loading state
+                showToast('Getting your location...', 'info');
+                
+                // Use high accuracy and timeout for better results
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                };
+                
+                // Get current position with improved accuracy
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        // Check if coordinates are valid (not 0,0)
+                        if (lat === 0 && lng === 0) {
+                            showToast('Unable to get accurate location. Please try again.', 'error');
+                            return;
+                        }
+
+                        if (appState.userMarker) {
+                            appState.map.removeLayer(appState.userMarker);
+                        }
+
+                        const userIcon = L.divIcon({
+                            className: 'user-marker',
+                            html: `<div style="background-color: #ef4444; width: 20px; height: 20px; 
+                                border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.3);"></div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        });
+
+                        appState.userMarker = L.marker([lat, lng], { icon: userIcon })
+                            .addTo(appState.map)
+                            .bindPopup('You are here')
+                            .openPopup();
+
+                        appState.map.setView([lat, lng], 15);
+                        
+                        // Show accuracy circle if available
+                        if (position.coords.accuracy) {
+                            L.circle([lat, lng], {
+                                radius: position.coords.accuracy,
+                                color: '#ef4444',
+                                fillColor: '#ef4444',
+                                fillOpacity: 0.1,
+                                weight: 1
+                            }).addTo(appState.map);
+                        }
+                        
+                        showToast('Location found!', 'success');
+                        
+                        // Start watching position for updates
+                        appState.watchId = navigator.geolocation.watchPosition(
+                            (newPosition) => {
+                                const newLat = newPosition.coords.latitude;
+                                const newLng = newPosition.coords.longitude;
+                                
+                                // Update user marker position
+                                if (appState.userMarker) {
+                                    appState.userMarker.setLatLng([newLat, newLng]);
+                                }
+                            },
+                            (error) => {
+                                console.error('Error updating location:', error);
+                            },
+                            options
+                        );
+                    },
+                    (error) => {
+                        let errorMessage = 'Unable to get your location';
+                        
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Location access denied. Please enable location services.';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'Location information unavailable.';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'Location request timed out. Please try again.';
+                                break;
+                        }
+                        
+                        showToast(errorMessage, 'error');
+                    },
+                    options
+                );
+            } else {
+                showToast('Geolocation is not supported by your browser', 'error');
+            }
+        }
+
+        // Locate me button and FAB
+        document.getElementById('locate-me').addEventListener('click', locateUser);
+        document.getElementById('fab-locate').addEventListener('click', locateUser);
+
+        // Clear route
+        document.getElementById('clear-route').addEventListener('click', () => {
+            if (appState.routingControl) {
+                appState.map.removeControl(appState.routingControl);
+                appState.routingControl = null;
+                document.getElementById('clear-route').style.display = 'none';
+                hideRouteSummary();
+                showToast('Route cleared', 'success');
+            }
+        });
+
+        // Filter change
+        document.getElementById('category-select').addEventListener('change', () => {
+            addLocationMarkers();
+        });
+
+        // Search
+        document.getElementById('search-input').addEventListener('input', () => {
+            addLocationMarkers();
+        });
+
+        // Route summary close button
+        document.getElementById('route-summary-close').addEventListener('click', hideRouteSummary);
+
+        // Detect screen size changes
+        window.addEventListener('resize', () => {
+            appState.isMobile = window.innerWidth < 768;
+        });
+
+        // Make functions global
+        window.showLocationInfo = showLocationInfo;
+        window.hideLocationInfo = hideLocationInfo;
+        window.navigateToLocation = navigateToLocation;
+        window.hideProfilePage = hideProfilePage;
+    </script>
+</body>
+</html>

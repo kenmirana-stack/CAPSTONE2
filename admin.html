@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MOONRIDER Admin Panel</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        html {
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Mobile Menu Toggle - Enhanced */
+        .mobile-menu-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            min-height: 44px;
+            min-width: 44px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .mobile-menu-toggle:hover {
+            background: #5a6fd8;
+            transform: scale(1.05);
+        }
+        
+        /* Login Page - Enhanced */
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 420px;
+            padding: 2.5rem;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: slideUp 0.5s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -40%);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .login-header h1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        
+        .login-header p {
+            color: #6c757d;
+        }
+        
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .form-group input {
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+            min-height: 44px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .login-btn {
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            min-height: 44px;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        .back-btn {
+            display: block;
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .back-btn:hover {
+            color: #764ba2;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 0.5rem;
+            display: none;
+            text-align: center;
+            padding: 10px;
+            background: rgba(220, 53, 69, 0.1);
+            border-radius: 8px;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Dashboard - Enhanced */
+        .dashboard-container {
+            display: none;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        
+        /* Sidebar - Enhanced for Mobile */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+        
+        .sidebar.active {
+            transform: translateX(0);
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            backdrop-filter: blur(2px);
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .sidebar-header h2 {
+            font-size: 1.5rem;
+            margin-top: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+        
+        .menu-item {
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            transition: all 0.3s;
+            min-height: 44px;
+        }
+        
+        .menu-item:hover, .menu-item.active {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-left: 4px solid #11998e;
+            padding-left: 16px;
+        }
+        
+        .menu-item i {
+            margin-right: 12px;
+            font-size: 18px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Main Content - Enhanced */
+        .main-content {
+            flex: 1;
+            padding: 25px;
+            margin-left: 260px;
+            transition: margin-left 0.3s ease;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .header h1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .user-info img {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 3px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* Dashboard Cards - Enhanced */
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 35px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            padding: 25px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        
+        .card-title {
+            font-size: 0.9rem;
+            color: #6c757d;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .card-icon {
+            width: 55px;
+            height: 55px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .card-desc {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 8px;
+        }
+        
+        /* Tabs - New */
+        .tabs-container {
+            margin-bottom: 25px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 25px;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            padding: 14px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            min-height: 44px;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Locations Cards - Enhanced */
+        .locations-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 35px;
+        }
+        
+        .location-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            padding: 25px;
+        }
+        
+        .location-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .location-title {
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+        
+        .activity-list {
+            list-style: none;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 18px 0;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.3s;
+        }
+        
+        .activity-item:hover {
+            background: rgba(102, 126, 234, 0.03);
+            padding-left: 10px;
+            border-radius: 10px;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 18px;
+            font-size: 1.1rem;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+        }
+        
+        .activity-content {
+            flex: 1;
+        }
+        
+        .activity-content h4 {
+            font-size: 1.05rem;
+            margin-bottom: 6px;
+            color: #2c3e50;
+        }
+        
+        .activity-content p {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        /* Buttons - Enhanced */
+        .logout-btn {
+            display: block;
+            width: calc(100% - 40px);
+            margin: 20px;
+            padding: 14px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+            min-height: 44px;
+        }
+        
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        
+        .btn {
+            padding: 9px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+            font-weight: 600;
+            min-height: 44px;
+            min-width: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-edit {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            box-shadow: 0 3px 10px rgba(240, 147, 251, 0.3);
+        }
+        
+        .btn-edit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+        }
+        
+        .btn-archive {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            box-shadow: 0 3px 10px rgba(255, 107, 107, 0.3);
+        }
+        
+        .btn-archive:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn-unarchive {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            box-shadow: 0 3px 10px rgba(17, 153, 142, 0.3);
+        }
+        
+        .btn-unarchive:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+        
+        .btn-add {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            box-shadow: 0 3px 10px rgba(17, 153, 142, 0.3);
+        }
+        
+        .btn-add:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+        
+        /* Modal - Enhanced */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideUp 0.3s ease;
+        }
+        
+        @keyframes modalSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #6c757d;
+            transition: all 0.3s;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        .close-btn:hover {
+            background: rgba(0,0,0,0.05);
+            color: #333;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            min-height: 44px;
+        }
+        
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .form-section-title {
+            font-size: 1.1rem;
+            color: #667eea;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .btn-cancel {
+            background: #6c757d;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            min-height: 44px;
+        }
+        
+        .btn-cancel:hover {
+            background: #5a6268;
+        }
+        
+        .btn-save {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 3px 10px rgba(17, 153, 142, 0.3);
+            min-height: 44px;
+        }
+        
+        .btn-save:hover {
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+        
+        /* Image Upload Styles */
+        .image-upload-container {
+            margin-bottom: 20px;
+        }
+        
+        .image-preview {
+            width: 100%;
+            max-height: 200px;
+            border-radius: 10px;
+            margin-top: 10px;
+            display: none;
+            object-fit: cover;
+            border: 2px dashed #e0e0e0;
+        }
+        
+        .image-upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .image-upload-area:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .image-upload-area i {
+            font-size: 2.5rem;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .image-upload-text {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .image-upload-subtext {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .image-upload-btn {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .image-upload-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .remove-image-btn {
+            display: none;
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .remove-image-btn:hover {
+            background: #c82333;
+        }
+        
+        /* Confirmation Dialog - Enhanced */
+        .confirmation-dialog {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .dialog-content {
+            background-color: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 420px;
+            padding: 30px;
+            text-align: center;
+            animation: modalSlideUp 0.3s ease;
+        }
+        
+        .dialog-title {
+            font-size: 1.4rem;
+            margin-bottom: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+        
+        .dialog-message {
+            margin-bottom: 25px;
+            color: #6c757d;
+            font-size: 1.05rem;
+        }
+        
+        .dialog-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        /* Popular Section */
+        .popular-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 35px;
+        }
+        
+        .popular-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            padding: 25px;
+        }
+        
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 10000;
+            animation: slideInRight 0.3s ease;
+            border-left: 4px solid;
+        }
+        
+        .toast.success {
+            border-left-color: #28a745;
+        }
+        
+        .toast.error {
+            border-left-color: #dc3545;
+        }
+        
+        .toast.info {
+            border-left-color: #17a2b8;
+        }
+        
+        .toast.warning {
+            border-left-color: #ffc107;
+        }
+        
+        .toast i {
+            font-size: 1.2rem;
+        }
+        
+        .toast.success i {
+            color: #28a745;
+        }
+        
+        .toast.error i {
+            color: #dc3545;
+        }
+        
+        .toast.info i {
+            color: #17a2b8;
+        }
+        
+        .toast.warning i {
+            color: #ffc107;
+        }
+        
+        /* Mobile Responsive Styles - Enhanced */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px; /* Slightly wider for better mobile experience */
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 20px 15px;
+            }
+            
+            .mobile-menu-toggle {
+                display: block;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .login-container {
+                width: 95%;
+                padding: 2rem 1.5rem;
+                margin: 20px;
+            }
+            
+            .login-header h1 {
+                font-size: 1.6rem;
+            }
+            
+            .dashboard-cards {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .locations-container,
+            .popular-container {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            
+            .user-info {
+                justify-content: center;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .location-card,
+            .popular-card {
+                padding: 20px;
+            }
+            
+            .activity-item {
+                padding: 12px 0;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .dialog-content {
+                width: 95%;
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .tabs {
+                flex-wrap: wrap;
+            }
+            
+            .tab {
+                flex: 1;
+                min-width: 120px;
+            }
+            
+            .image-upload-area {
+                padding: 15px;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .main-content {
+                padding: 15px 10px;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .card-value {
+                font-size: 2rem;
+            }
+            
+            .location-title {
+                font-size: 1.1rem;
+            }
+            
+            .modal-title {
+                font-size: 1.3rem;
+            }
+            
+            .dialog-title {
+                font-size: 1.2rem;
+            }
+            
+            .tab {
+                padding: 12px 16px;
+            }
+            
+            .sidebar {
+                width: 85%; /* Take up most of the screen on very small devices */
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="login-page">
+        <div class="login-container">
+            <div class="login-header">
+                <h1><i class="fas fa-user-shield"></i> Admin Login</h1>
+                <p>MOONRIDER Admin Panel</p>
+            </div>
+            
+            <form class="login-form" id="admin-login-form">
+                <div class="form-group">
+                    <label for="username"><i class="fas fa-user"></i> Username</label>
+                    <input type="text" id="username" placeholder="Enter admin username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password"><i class="fas fa-lock"></i> Password</label>
+                    <input type="password" id="password" placeholder="Enter password" required>
+                </div>
+                
+                <button type="submit" class="login-btn" id="login-btn">
+                    <i class="fas fa-sign-in-alt"></i> Login to Dashboard
+                </button>
+                
+                <div class="error-message" id="error-message">
+                    Invalid credentials. Please try again.
+                </div>
+            </form>
+            
+            <a href="index.html" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Back to Main App
+            </a>
+        </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboard-page" class="dashboard-container">
+        <!-- Mobile Menu Toggle -->
+        <button class="mobile-menu-toggle" id="mobile-menu-toggle">
+            <i class="fas fa-bars"></i>
+        </button>
+        
+        <!-- Sidebar Overlay for Mobile -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+        
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-moon fa-2x"></i>
+                <h2>MOONRIDER</h2>
+                <p style="font-size: 0.85rem; opacity: 0.9;">Admin Panel</p>
+            </div>
+            
+            <div class="sidebar-menu">
+                <a href="#" class="menu-item active" data-tab="dashboard">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="menu-item" data-tab="gas-stations">
+                    <i class="fas fa-gas-pump"></i>
+                    <span>Gas Stations</span>
+                </a>
+                <a href="#" class="menu-item" data-tab="repair-shops">
+                    <i class="fas fa-tools"></i>
+                    <span>Repair Shops</span>
+                </a>
+                <a href="#" class="menu-item" data-tab="archive">
+                    <i class="fas fa-archive"></i>
+                    <span>Archive</span>
+                </a>
+            </div>
+            
+            <a href="#" class="logout-btn" id="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard Tab -->
+            <div id="dashboard-tab" class="tab-content active">
+                <div class="header">
+                    <h1><i class="fas fa-tachometer-alt"></i> Dashboard Overview</h1>
+                    <div class="user-info">
+                        <img src="https://ui-avatars.com/api/?name=Admin&background=667eea&color=fff" alt="Admin">
+                        <div>
+                            <h4 style="color: #667eea;">Administrator</h4>
+                            <p style="font-size: 0.85rem; color: #6c757d;">Full Access</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dashboard Cards -->
+                <div class="dashboard-cards">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Gas Stations</h3>
+                            <div class="card-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <i class="fas fa-gas-pump"></i>
+                            </div>
+                        </div>
+                        <div class="card-content">
+                            <h2 class="card-value" id="total-stations">0</h2>
+                            <p class="card-desc">Total gasoline stations</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Repair Shops</h3>
+                            <div class="card-icon" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                                <i class="fas fa-tools"></i>
+                            </div>
+                        </div>
+                        <div class="card-content">
+                            <h2 class="card-value" id="total-repair-shops">0</h2>
+                            <p class="card-desc">Total repair shops</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Registered Users</h3>
+                            <div class="card-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        <div class="card-content">
+                            <h2 class="card-value" id="registered-users">0</h2>
+                            <p class="card-desc">Total registered users</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Total Visits</h3>
+                            <div class="card-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white;">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                        </div>
+                        <div class="card-content">
+                            <h2 class="card-value" id="total-visits">0</h2>
+                            <p class="card-desc">All-time location visits</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Most Visited -->
+                <div class="popular-container">
+                    <div class="popular-card">
+                        <h3 class="location-title" style="margin-bottom: 20px;"><i class="fas fa-fire"></i> Most Visited Stations</h3>
+                        <div class="activity-list" id="most-visited-stations">
+                            <p style="text-align: center; color: #6c757d; padding: 20px;">Loading data...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="popular-card">
+                        <h3 class="location-title" style="margin-bottom: 20px;"><i class="fas fa-star"></i> Most Viewed Shops</h3>
+                        <div class="activity-list" id="most-viewed-shops">
+                            <p style="text-align: center; color: #6c757d; padding: 20px;">Loading data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gas Stations Tab -->
+            <div id="gas-stations-tab" class="tab-content">
+                <div class="header">
+                    <h1><i class="fas fa-gas-pump"></i> Gas Stations Management</h1>
+                    <div class="user-info">
+                        <img src="https://ui-avatars.com/api/?name=Admin&background=667eea&color=fff" alt="Admin">
+                        <div>
+                            <h4 style="color: #667eea;">Administrator</h4>
+                            <p style="font-size: 0.85rem; color: #6c757d;">Full Access</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="location-card">
+                    <div class="location-header">
+                        <h3 class="location-title"><i class="fas fa-gas-pump"></i> Gas Stations</h3>
+                        <button class="btn btn-add" id="add-station-btn">
+                            <i class="fas fa-plus"></i> Add Station
+                        </button>
+                    </div>
+                    <div class="activity-list" id="stations-list">
+                        <p style="text-align: center; color: #6c757d; padding: 20px;">Loading stations...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Repair Shops Tab -->
+            <div id="repair-shops-tab" class="tab-content">
+                <div class="header">
+                    <h1><i class="fas fa-tools"></i> Repair Shops Management</h1>
+                    <div class="user-info">
+                        <img src="https://ui-avatars.com/api/?name=Admin&background=667eea&color=fff" alt="Admin">
+                        <div>
+                            <h4 style="color: #667eea;">Administrator</h4>
+                            <p style="font-size: 0.85rem; color: #6c757d;">Full Access</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="location-card">
+                    <div class="location-header">
+                        <h3 class="location-title"><i class="fas fa-tools"></i> Repair Shops</h3>
+                        <button class="btn btn-add" id="add-shop-btn">
+                            <i class="fas fa-plus"></i> Add Shop
+                        </button>
+                    </div>
+                    <div class="activity-list" id="shops-list">
+                        <p style="text-align: center; color: #6c757d; padding: 20px;">Loading shops...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Archive Tab -->
+            <div id="archive-tab" class="tab-content">
+                <div class="header">
+                    <h1><i class="fas fa-archive"></i> Archive Management</h1>
+                    <div class="user-info">
+                        <img src="https://ui-avatars.com/api/?name=Admin&background=667eea&color=fff" alt="Admin">
+                        <div>
+                            <h4 style="color: #667eea;">Administrator</h4>
+                            <p style="font-size: 0.85rem; color: #6c757d;">Full Access</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="locations-container">
+                    <div class="location-card">
+                        <div class="location-header">
+                            <h3 class="location-title"><i class="fas fa-gas-pump"></i> Archived Gas Stations</h3>
+                        </div>
+                        <div class="activity-list" id="archived-stations-list">
+                            <p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived stations...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="location-card">
+                        <div class="location-header">
+                            <h3 class="location-title"><i class="fas fa-tools"></i> Archived Repair Shops</h3>
+                        </div>
+                        <div class="activity-list" id="archived-shops-list">
+                            <p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived shops...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal" id="edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title">Edit Location</h3>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <form id="location-form">
+                <input type="hidden" id="location-id">
+                <input type="hidden" id="location-type">
+                
+                <div class="form-section">
+                    <div class="form-section-title">Basic Information</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="location-name"><i class="fas fa-building"></i> Name</label>
+                            <input type="text" class="form-input" id="location-name" placeholder="Enter location name" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="location-contact"><i class="fas fa-phone"></i> Contact</label>
+                            <input type="text" class="form-input" id="location-contact" placeholder="Enter contact number">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="location-address"><i class="fas fa-map-marker-alt"></i> Address</label>
+                        <input type="text" class="form-input" id="location-address" placeholder="Enter location address" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="location-coordinates"><i class="fas fa-compass"></i> Coordinates</label>
+                            <input type="text" class="form-input" id="location-coordinates" placeholder="Enter coordinates (lat, lng)" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="location-hours"><i class="fas fa-clock"></i> Operating Hours</label>
+                            <input type="text" class="form-input" id="location-hours" placeholder="e.g., 8:00 AM - 8:00 PM">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gas Station Specific Fields -->
+                <div class="form-section" id="gas-station-fields">
+                    <div class="form-section-title">Gas Station Information</div>
+                    <div class="form-group">
+                        <label class="form-label" for="fuel-types"><i class="fas fa-gas-pump"></i> Fuel Types</label>
+                        <input type="text" class="form-input" id="fuel-types" placeholder="e.g., Diesel, Premium, Unleaded">
+                    </div>
+                </div>
+
+                <!-- Repair Shop Specific Fields -->
+                <div class="form-section" id="repair-shop-fields">
+                    <div class="form-section-title">Repair Shop Information</div>
+                    <div class="form-group">
+                        <label class="form-label" for="services-offered"><i class="fas fa-tools"></i> Services Offered</label>
+                        <input type="text" class="form-input" id="services-offered" placeholder="e.g., Oil Change, Brake Repair, Tire Service">
+                    </div>
+                </div>
+
+                <!-- Additional information removed (description and image upload) -->
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" id="cancel-edit">Cancel</button>
+                    <button type="submit" class="btn btn-save" id="save-location">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirmation Dialog - Archive -->
+    <div class="confirmation-dialog" id="archive-confirmation">
+        <div class="dialog-content">
+            <h3 class="dialog-title"><i class="fas fa-archive"></i> Confirm Archive</h3>
+            <p class="dialog-message">Are you sure you want to archive this location? It will be moved to the archive section.</p>
+            
+            <div class="dialog-buttons">
+                <button class="btn btn-cancel" id="cancel-archive">Cancel</button>
+                <button class="btn btn-archive" id="confirm-archive">Archive</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Dialog - Unarchive -->
+    <div class="confirmation-dialog" id="unarchive-confirmation">
+        <div class="dialog-content">
+            <h3 class="dialog-title"><i class="fas fa-box-open"></i> Confirm Unarchive</h3>
+            <p class="dialog-message">Are you sure you want to unarchive this location? It will be restored to the active locations.</p>
+            
+            <div class="dialog-buttons">
+                <button class="btn btn-cancel" id="cancel-unarchive">Cancel</button>
+                <button class="btn btn-unarchive" id="confirm-unarchive">Unarchive</button>
+            </div>
+        </div>
+    </div>
+
+   <script>
+    // API Configuration
+    const API_BASE = 'http://localhost:3001';
+    
+    // DOM Elements
+    const loginPage = document.getElementById('login-page');
+    const dashboardPage = document.getElementById('dashboard-page');
+    const loginForm = document.getElementById('admin-login-form');
+    const errorMessage = document.getElementById('error-message');
+    const logoutBtn = document.getElementById('logout-btn');
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const menuItems = document.querySelectorAll('.menu-item');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const addStationBtn = document.getElementById('add-station-btn');
+    const addShopBtn = document.getElementById('add-shop-btn');
+    const editModal = document.getElementById('edit-modal');
+    const closeModal = document.getElementById('close-modal');
+    const cancelEdit = document.getElementById('cancel-edit');
+    const locationForm = document.getElementById('location-form');
+    const archiveConfirmation = document.getElementById('archive-confirmation');
+    const cancelArchive = document.getElementById('cancel-archive');
+    const confirmArchive = document.getElementById('confirm-archive');
+    const unarchiveConfirmation = document.getElementById('unarchive-confirmation');
+    const cancelUnarchive = document.getElementById('cancel-unarchive');
+    const confirmUnarchive = document.getElementById('confirm-unarchive');
+
+    // Current archive/unarchive context
+    let currentArchiveContext = { type: null, id: null };
+
+    // Mobile menu functionality
+    function checkMobileView() {
+        if (window.innerWidth <= 1024) {
+            mobileMenuToggle.style.display = 'block';
+            sidebar.style.transform = 'translateX(-100%)';
+        } else {
+            mobileMenuToggle.style.display = 'none';
+            sidebar.style.transform = 'translateX(0)';
+        }
+    }
+
+    mobileMenuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+        sidebarOverlay.classList.toggle('active');
+    });
+
+    sidebarOverlay.addEventListener('click', () => {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+    });
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 1024 && 
+            !sidebar.contains(e.target) && 
+            !mobileMenuToggle.contains(e.target)) {
+            sidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
+        }
+    });
+
+    // Close sidebar when clicking a menu item on mobile
+    menuItems.forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 1024) {
+                sidebar.classList.remove('active');
+                sidebarOverlay.classList.remove('active');
+            }
+        });
+    });
+
+    // Prevent clicks inside sidebar from closing it
+    sidebar.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    // Add touch events for better mobile experience
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, false);
+
+    document.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, false);
+
+    function handleSwipe() {
+        const swipeThreshold = 100;
+        const swipeDistance = touchEndX - touchStartX;
+
+        if (Math.abs(swipeDistance) < swipeThreshold) return;
+
+        if (swipeDistance > 0) {
+            // Swipe right - open sidebar
+            if (window.innerWidth <= 1024 && !sidebar.classList.contains('active')) {
+                sidebar.classList.add('active');
+                sidebarOverlay.classList.add('active');
+            }
+        } else {
+            // Swipe left - close sidebar
+            if (window.innerWidth <= 1024 && sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+                sidebarOverlay.classList.remove('active');
+            }
+        }
+    }
+
+    window.addEventListener('resize', checkMobileView);
+    checkMobileView(); // Initial check
+
+    // Tab functionality
+    menuItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Update active menu item
+            menuItems.forEach(i => i.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Show corresponding tab
+            const tabId = this.getAttribute('data-tab');
+            tabContents.forEach(content => content.classList.remove('active'));
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+            
+            // Load data for the selected tab if needed
+            if (tabId === 'gas-stations') {
+                loadStations();
+            } else if (tabId === 'repair-shops') {
+                loadShops();
+            } else if (tabId === 'archive') {
+                loadArchivedLocations();
+            }
+        });
+    });
+
+    // Login functionality
+    // Check token on page load
+    window.addEventListener('load', function() {
+        const token = localStorage.getItem('adminToken');
+        if (token) {
+            // Verify token validity
+            fetch(`${API_BASE}/api/admin/stats`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error('Invalid token');
+                }
+                return response.json();
+            }).then(() => {
+                dashboardPage.style.display = 'block';
+                loginPage.style.display = 'none';
+                loadDashboardData();
+            }).catch(() => {
+                // Invalid or expired token
+                localStorage.removeItem('adminToken');
+                dashboardPage.style.display = 'none';
+                loginPage.style.display = 'block';
+            });
+        } else {
+            dashboardPage.style.display = 'none';
+            loginPage.style.display = 'block';
+        }
+    });
+
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const loginBtn = document.getElementById('login-btn');
+        loginBtn.innerHTML = 'Logging in... <div class="loader"></div>';
+        loginBtn.disabled = true;
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/admin-login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('adminToken', data.token);
+                errorMessage.style.display = 'none';
+                dashboardPage.style.display = 'block';
+                loginPage.style.display = 'none';
+                loadDashboardData();
+                showToast('Login successful!', 'success');
+            } else {
+                errorMessage.textContent = data.error || 'Invalid credentials';
+                errorMessage.style.display = 'block';
+                showToast('Invalid credentials', 'error');
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+            errorMessage.textContent = 'Network error';
+            errorMessage.style.display = 'block';
+            showToast('Network error', 'error');
+        } finally {
+            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login to Dashboard';
+            loginBtn.disabled = false;
+        }
+    });
+
+    // Load dashboard data - FIXED
+    async function loadDashboardData() {
+        try {
+            const token = localStorage.getItem('adminToken');
+            const response = await fetch(`${API_BASE}/api/admin/stats`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch stats');
+            }
+
+            const data = await response.json();
+            
+            document.getElementById('total-stations').innerText = data.totalStations;
+            document.getElementById('total-repair-shops').innerText = data.totalRepairShops;
+            document.getElementById('registered-users').innerText = data.registeredUsers;
+            document.getElementById('total-visits').innerText = data.totalVisits;
+            
+            // Load popular sections with real data
+            loadMostVisitedStations(data.stations || []);
+            loadMostViewedShops(data.repairShops || []);
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            showToast('Failed to load dashboard data', 'error');
+        }
+    }
+
+    // Load stations for Gas Stations tab - FIXED
+    async function loadStations() {
+        const list = document.getElementById('stations-list');
+        list.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading stations...</p>';
+        
+        try {
+            const token = localStorage.getItem('adminToken');
+            const response = await fetch(`${API_BASE}/api/locations?type=gasoline`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch stations');
+            }
+
+            const data = await response.json();
+            const stations = data.locations || [];
+            
+            list.innerHTML = '';
+            if (!stations.length) {
+                list.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No stations found.</p>';
+                return;
+            }
+            
+            stations.forEach(station => {
+                const item = document.createElement('div');
+                item.className = 'activity-item';
+                item.innerHTML = `
+                    <div class="activity-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <i class="fas fa-gas-pump"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>${station.name}</h4>
+                        <p>${station.address}</p>
+                        <p><small>${station.visits || 0} visits • ${station.views || 0} views</small></p>
+                        <div class="action-buttons">
+                            <button class="btn btn-edit" onclick="editLocation('station', ${station.id})">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-archive" onclick="archiveLocation('station', ${station.id})">
+                                <i class="fas fa-archive"></i> Archive
+                            </button>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        } catch (error) {
+            console.error('Error loading stations:', error);
+            list.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 20px;">Failed to load stations</p>';
+            showToast('Failed to load stations', 'error');
+        }
+    }
+
+    // Load shops for Repair Shops tab - FIXED
+    async function loadShops() {
+        const list = document.getElementById('shops-list');
+        list.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading shops...</p>';
+        
+        try {
+            const token = localStorage.getItem('adminToken');
+            const response = await fetch(`${API_BASE}/api/locations?type=repair`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch shops');
+            }
+
+            const data = await response.json();
+            const shops = data.locations || [];
+            
+            list.innerHTML = '';
+            if (!shops.length) {
+                list.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No shops found.</p>';
+                return;
+            }
+            
+            shops.forEach(shop => {
+                const item = document.createElement('div');
+                item.className = 'activity-item';
+                item.innerHTML = `
+                    <div class="activity-icon" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>${shop.name}</h4>
+                        <p>${shop.address}</p>
+                        <p><small>${shop.visits || 0} visits • ${shop.views || 0} views</small></p>
+                        <div class="action-buttons">
+                            <button class="btn btn-edit" onclick="editLocation('shop', ${shop.id})">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-archive" onclick="archiveLocation('shop', ${shop.id})">
+                                <i class="fas fa-archive"></i> Archive
+                            </button>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        } catch (error) {
+            console.error('Error loading shops:', error);
+            list.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 20px;">Failed to load shops</p>';
+            showToast('Failed to load shops', 'error');
+        }
+    }
+
+    // Load archived locations - FIXED
+    async function loadArchivedLocations() {
+        // Show loading states
+        document.getElementById('archived-stations-list').innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived stations...</p>';
+        document.getElementById('archived-shops-list').innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived shops...</p>';
+
+        try {
+            const token = localStorage.getItem('adminToken');
+            
+            // Fetch archived stations
+            const stationsResponse = await fetch(`${API_BASE}/api/admin/locations/archived?type=gasoline`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            // Fetch archived shops
+            const shopsResponse = await fetch(`${API_BASE}/api/admin/locations/archived?type=repair`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            let archivedStations = [];
+            let archivedShops = [];
+
+            if (stationsResponse.ok) {
+                const data = await stationsResponse.json();
+                archivedStations = data.locations || data.archivedStations || [];
+            }
+
+            if (shopsResponse.ok) {
+                const data = await shopsResponse.json();
+                archivedShops = data.locations || data.archivedShops || [];
+            }
+
+            // Load archived stations
+            const archivedStationsList = document.getElementById('archived-stations-list');
+            archivedStationsList.innerHTML = '';
+
+            if (!archivedStations.length) {
+                archivedStationsList.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No archived stations found.</p>';
+            } else {
+                archivedStations.forEach(station => {
+                    const item = document.createElement('div');
+                    item.className = 'activity-item';
+                    item.innerHTML = `
+                        <div class="activity-icon" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
+                            <i class="fas fa-gas-pump"></i>
+                        </div>
+                        <div class="activity-content">
+                            <h4>${station.name}</h4>
+                            <p>${station.address}</p>
+                            <p><small>Archived: ${new Date(station.archived_at || Date.now()).toLocaleDateString()}</small></p>
+                            <div class="action-buttons">
+                                <button class="btn btn-unarchive" onclick="unarchiveLocation('station', ${station.id})">
+                                    <i class="fas fa-box-open"></i> Unarchive
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    archivedStationsList.appendChild(item);
+                });
+            }
+
+            // Load archived shops
+            const archivedShopsList = document.getElementById('archived-shops-list');
+            archivedShopsList.innerHTML = '';
+
+            if (!archivedShops.length) {
+                archivedShopsList.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No archived shops found.</p>';
+            } else {
+                archivedShops.forEach(shop => {
+                    const item = document.createElement('div');
+                    item.className = 'activity-item';
+                    item.innerHTML = `
+                        <div class="activity-icon" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        <div class="activity-content">
+                            <h4>${shop.name}</h4>
+                            <p>${shop.address}</p>
+                            <p><small>Archived: ${new Date(shop.archived_at || Date.now()).toLocaleDateString()}</small></p>
+                            <div class="action-buttons">
+                                <button class="btn btn-unarchive" onclick="unarchiveLocation('shop', ${shop.id})">
+                                    <i class="fas fa-box-open"></i> Unarchive
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    archivedShopsList.appendChild(item);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading archived locations:', error);
+            showToast('Failed to load archived locations', 'error');
+        }
+    }
+
+    function loadMostVisitedStations(stations) {
+        const list = document.getElementById('most-visited-stations');
+        list.innerHTML = '';
+        
+        if (!stations || !stations.length) {
+            list.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No station data available</p>';
+            return;
+        }
+        
+        // Sort by visits and take top 3
+        const topStations = [...stations]
+            .sort((a, b) => (b.visits || 0) - (a.visits || 0))
+            .slice(0, 3);
+        
+        topStations.forEach(station => {
+            const item = document.createElement('div');
+            item.className = 'activity-item';
+            
+            item.innerHTML = `
+                <div class="activity-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white;">
+                    <i class="fas fa-fire"></i>
+                </div>
+                <div class="activity-content">
+                    <h4>${station.name}</h4>
+                    <p>${station.address}</p>
+                    <p><strong>${station.visits || 0} visits</strong></p>
+                </div>
+            `;
+            
+            list.appendChild(item);
+        });
+    }
+
+    function loadMostViewedShops(shops) {
+        const list = document.getElementById('most-viewed-shops');
+        list.innerHTML = '';
+        
+        if (!shops || !shops.length) {
+            list.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No shop data available</p>';
+            return;
+        }
+        
+        // Sort by views and take top 3
+        const topShops = [...shops]
+            .sort((a, b) => (b.views || 0) - (a.views || 0))
+            .slice(0, 3);
+        
+        topShops.forEach(shop => {
+            const item = document.createElement('div');
+            item.className = 'activity-item';
+            
+            item.innerHTML = `
+                <div class="activity-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div class="activity-content">
+                    <h4>${shop.name}</h4>
+                    <p>${shop.address}</p>
+                    <p><strong>${shop.views || 0} views</strong></p>
+                </div>
+            `;
+            
+            list.appendChild(item);
+        });
+    }
+
+    // Image upload and description removed from admin form
+
+    // Edit location function - FIXED
+    async function editLocation(type, id) {
+        document.getElementById('modal-title').textContent = `Edit ${type === 'station' ? 'Gas Station' : 'Repair Shop'}`;
+        document.getElementById('location-type').value = type;
+        document.getElementById('location-id').value = id;
+
+        // Show/hide specific fields based on type
+        if (type === 'station') {
+            document.getElementById('gas-station-fields').style.display = 'block';
+            document.getElementById('repair-shop-fields').style.display = 'none';
+        } else {
+            document.getElementById('gas-station-fields').style.display = 'none';
+            document.getElementById('repair-shop-fields').style.display = 'block';
+        }
+
+        try {
+            const token = localStorage.getItem('adminToken');
+            const response = await fetch(`${API_BASE}/api/admin/locations/${id}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch location data');
+            }
+
+            const data = await response.json();
+            const location = data.location;
+            
+            // Populate form with real data
+            document.getElementById('location-name').value = location.name || '';
+            document.getElementById('location-address').value = location.address || '';
+            document.getElementById('location-coordinates').value = `${location.lat || ''}, ${location.lng || ''}`;
+            document.getElementById('location-contact').value = location.contact || '';
+            document.getElementById('location-hours').value = location.operating_hours || '';
+            
+            // Set type-specific fields
+            if (type === 'station') {
+                document.getElementById('fuel-types').value = location.fuel_types || '';
+            } else {
+                document.getElementById('services-offered').value = location.services_offered || '';
+            }
+            
+            // Image handling removed in admin UI
+        } catch (error) {
+            console.error('Error fetching location:', error);
+            showToast('Failed to load location data', 'error');
+        }
+        
+        editModal.style.display = 'flex';
+    }
+
+    // Archive location function
+    function archiveLocation(type, id) {
+        currentArchiveContext = { type, id };
+        archiveConfirmation.style.display = 'flex';
+    }
+
+    // Unarchive location function
+    function unarchiveLocation(type, id) {
+        currentArchiveContext = { type, id };
+        unarchiveConfirmation.style.display = 'flex';
+    }
+
+    // Modal and dialog event listeners
+    closeModal.addEventListener('click', function() {
+        editModal.style.display = 'none';
+    });
+
+    cancelEdit.addEventListener('click', function() {
+        editModal.style.display = 'none';
+    });
+
+    cancelArchive.addEventListener('click', function() {
+        archiveConfirmation.style.display = 'none';
+    });
+
+    confirmArchive.addEventListener('click', async function() {
+        const { type, id } = currentArchiveContext;
+        
+        try {
+            const token = localStorage.getItem('adminToken');
+            const response = await fetch(`${API_BASE}/api/admin/locations/${id}/archive`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to archive location');
+            }
+
+            // Reload the current tab after successful archiving
+            const currentTab = document.querySelector('.menu-item.active').getAttribute('data-tab');
+            if (currentTab === 'gas-stations') {
+                loadStations();
+            } else if (currentTab === 'repair-shops') {
+                loadShops();
+            }
+            // Refresh archived list so it reflects real DB state
+            loadArchivedLocations();
+            // Also reload the dashboard data
+            loadDashboardData();
+            showToast('Location archived successfully', 'success');
+        } catch (error) {
+            console.error('Error archiving location:', error);
+            showToast('Failed to archive location', 'error');
+        } finally {
+            archiveConfirmation.style.display = 'none';
+        }
+    });
+
+    cancelUnarchive.addEventListener('click', function() {
+        unarchiveConfirmation.style.display = 'none';
+    });
+
+    confirmUnarchive.addEventListener('click', async function() {
+        const { type, id } = currentArchiveContext;
+        
+        try {
+            const token = localStorage.getItem('adminToken');
+            const response = await fetch(`${API_BASE}/api/admin/locations/${id}/unarchive`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to unarchive location');
+            }
+
+            // Reload the archived locations after successful unarchiving
+            loadArchivedLocations();
+            // Also reload the dashboard data
+            loadDashboardData();
+            showToast('Location unarchived successfully', 'success');
+        } catch (error) {
+            console.error('Error unarchiving location:', error);
+            showToast('Failed to unarchive location', 'error');
+        } finally {
+            unarchiveConfirmation.style.display = 'none';
+        }
+    });
+
+    // Form submission - FIXED
+    locationForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const type = document.getElementById('location-type').value;
+        const id = document.getElementById('location-id').value;
+        const name = document.getElementById('location-name').value;
+        const address = document.getElementById('location-address').value;
+    const coordinates = document.getElementById('location-coordinates').value.split(',').map(coord => coord.trim());
+    const lat = parseFloat(coordinates[0]);
+    const lng = parseFloat(coordinates[1]);
+        const contact = document.getElementById('location-contact').value;
+        const operating_hours = document.getElementById('location-hours').value;
+        const fuel_types = document.getElementById('fuel-types').value;
+        const services_offered = document.getElementById('services-offered').value;
+
+        if (!name || !address || !coordinates || coordinates.length !== 2 || isNaN(lat) || isNaN(lng)) {
+            showToast('Please fill all required fields with valid data', 'error');
+            return;
+        }
+
+        try {
+            // Create form data
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('address', address);
+            formData.append('lat', lat);
+            formData.append('lng', lng);
+            formData.append('type', type === 'station' ? 'gasoline' : 'repair');
+            formData.append('contact', contact);
+            formData.append('operating_hours', operating_hours);
+
+            if (type === 'station') {
+                formData.append('fuel_types', fuel_types);
+                formData.append('services_offered', '');
+            } else {
+                formData.append('fuel_types', '');
+                formData.append('services_offered', services_offered);
+            }
+
+            // Image upload removed from admin UI
+
+            const token = localStorage.getItem('adminToken');
+            let endpoint, method;
+
+            if (id) {
+                // Update existing location
+                endpoint = `${API_BASE}/api/admin/locations/${id}`;
+                method = 'PUT';
+            } else {
+                // Create new location
+                endpoint = `${API_BASE}/api/admin/locations`;
+                method = 'POST';
+            }
+
+            const response = await fetch(endpoint, {
+                method: method,
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                    // Don't set Content-Type for FormData - let browser set it with boundary
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to save location');
+            }
+
+            // Reload the current tab after successful save
+            const currentTab = document.querySelector('.menu-item.active').getAttribute('data-tab');
+            if (currentTab === 'gas-stations') {
+                loadStations();
+            } else if (currentTab === 'repair-shops') {
+                loadShops();
+            } else if (currentTab === 'archive') {
+                loadArchivedLocations();
+            }
+
+            // Also reload the dashboard data
+            loadDashboardData();
+            showToast(id ? 'Location updated successfully' : 'Location added successfully', 'success');
+            
+            editModal.style.display = 'none';
+        } catch (error) {
+            console.error('Error saving location:', error);
+            showToast(error.message || 'Failed to save location', 'error');
+        }
+    });
+
+    // Add station button
+    addStationBtn.addEventListener('click', function() {
+        document.getElementById('modal-title').textContent = 'Add New Gas Station';
+        document.getElementById('location-type').value = 'station';
+        document.getElementById('location-id').value = '';
+        document.getElementById('gas-station-fields').style.display = 'block';
+        document.getElementById('repair-shop-fields').style.display = 'none';
+        
+    // Clear form
+    locationForm.reset();
+        
+        editModal.style.display = 'flex';
+    });
+
+    // Add shop button
+    addShopBtn.addEventListener('click', function() {
+        document.getElementById('modal-title').textContent = 'Add New Repair Shop';
+        document.getElementById('location-type').value = 'shop';
+        document.getElementById('location-id').value = '';
+        document.getElementById('gas-station-fields').style.display = 'none';
+        document.getElementById('repair-shop-fields').style.display = 'block';
+        
+    // Clear form
+    locationForm.reset();
+        
+        editModal.style.display = 'flex';
+    });
+
+    // Logout functionality
+    logoutBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        localStorage.removeItem('adminToken');
+        dashboardPage.style.display = 'none';
+        loginPage.style.display = 'block';
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+        showToast('Logged out successfully', 'success');
+    });
+
+    // Close modal when clicking outside
+    window.addEventListener('click', function(e) {
+        if (e.target === editModal) {
+            editModal.style.display = 'none';
+        }
+        if (e.target === archiveConfirmation) {
+            archiveConfirmation.style.display = 'none';
+        }
+        if (e.target === unarchiveConfirmation) {
+            unarchiveConfirmation.style.display = 'none';
+        }
+    });
+
+    // Toast notification function
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 4000);
+    }
+
+    // Initialize the app
+    document.addEventListener('DOMContentLoaded', function() {
+        // Clear any existing token to force login
+        localStorage.removeItem('adminToken');
+        
+        // Always show login page on initial load
+        loginPage.style.display = 'block';
+        dashboardPage.style.display = 'none';
+        
+        // Clear form fields
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+        errorMessage.style.display = 'none';
+    });
+</script>
+</body>
+</html>
