@@ -124,6 +124,136 @@ async function recreatePool() {
     }
 }
 
+// FIXED: Add missing columns for PostgreSQL
+async function addMissingColumnsPostgres() {
+    try {
+        console.log('Checking for missing columns in PostgreSQL...');
+        
+        // Check if locations table exists
+        const tableCheck = await dbQuery(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'locations'
+            );
+        `);
+        
+        if (!tableCheck.rows[0].exists) {
+            console.log('Creating locations table...');
+            await dbQuery(`
+                CREATE TABLE locations (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    type VARCHAR(50) NOT NULL,
+                    address TEXT NOT NULL,
+                    lat DECIMAL(10, 8) NOT NULL,
+                    lng DECIMAL(11, 8) NOT NULL,
+                    contact VARCHAR(100),
+                    operating_hours VARCHAR(255),
+                    fuel_types VARCHAR(255),
+                    services_offered TEXT,
+                    description TEXT,
+                    image VARCHAR(500),
+                    views INTEGER DEFAULT 0,
+                    visits INTEGER DEFAULT 0,
+                    is_archived BOOLEAN DEFAULT FALSE,
+                    archived_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            console.log('✓ Locations table created successfully');
+            return;
+        }
+
+        // Get all existing columns
+        const columnsCheck = await dbQuery(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            AND table_name = 'locations'
+        `);
+        
+        const existingColumns = columnsCheck.rows.map(row => row.column_name);
+        const requiredColumns = {
+            'is_archived': 'ADD COLUMN is_archived BOOLEAN DEFAULT FALSE',
+            'archived_at': 'ADD COLUMN archived_at TIMESTAMP',
+            'image': 'ADD COLUMN image VARCHAR(500)',
+            'contact': 'ADD COLUMN contact VARCHAR(100)',
+            'operating_hours': 'ADD COLUMN operating_hours VARCHAR(255)',
+            'fuel_types': 'ADD COLUMN fuel_types VARCHAR(255)',
+            'services_offered': 'ADD COLUMN services_offered TEXT',
+            'description': 'ADD COLUMN description TEXT',
+            'views': 'ADD COLUMN views INTEGER DEFAULT 0',
+            'visits': 'ADD COLUMN visits INTEGER DEFAULT 0'
+        };
+
+        const missingColumns = Object.entries(requiredColumns)
+            .filter(([column]) => !existingColumns.includes(column));
+
+        if (missingColumns.length > 0) {
+            console.log('Adding missing columns to locations table...');
+            
+            try {
+                for (const [column, addStatement] of missingColumns) {
+                    console.log(`Adding column: ${column}`);
+                    await dbQuery(`ALTER TABLE locations ${addStatement}`);
+                }
+                
+                console.log('✓ Missing columns added successfully');
+            } catch (error) {
+                console.error('Error adding columns:', error);
+                throw error;
+            }
+        } else {
+            console.log('✓ All required columns already exist');
+        }
+    } catch (error) {
+        console.error('Error checking/adding columns:', error);
+    }
+}
+
+// FIXED: Update location schema for PostgreSQL
+async function updateLocationSchemaPostgres() {
+    try {
+        console.log('Updating location schema with new fields...');
+        
+        // Check if new columns exist
+        const columns = await dbQuery(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'locations'
+        `);
+        
+        const existingColumns = columns.rows.map(col => col.column_name);
+        const newColumns = [
+            'contact',
+            'operating_hours', 
+            'fuel_types',
+            'services_offered',
+            'description'
+        ];
+        
+        for (const column of newColumns) {
+            if (!existingColumns.includes(column)) {
+                console.log(`Adding column: ${column}`);
+                let columnType = 'VARCHAR(500)';
+                if (column === 'description') {
+                    columnType = 'TEXT';
+                }
+                
+                await dbQuery(`
+                    ALTER TABLE locations 
+                    ADD COLUMN ${column} ${columnType}
+                `);
+            }
+        }
+        
+        console.log('✓ Location schema updated successfully');
+    } catch (error) {
+        console.error('Error updating location schema:', error);
+    }
+}
+
 async function initializeDatabase() {
     try {
         pool = new Pool(DB_CONFIG);
@@ -131,177 +261,13 @@ async function initializeDatabase() {
         // Simple connectivity check
         const res = await pool.query('SELECT NOW()');
         console.log('✓ Connected to Postgres database:', DB_CONFIG.database, 'Server time:', res.rows[0].now);
-        // Run Postgres-compatible schema helpers to ensure required tables/columns exist
-        await createTables();
-        await addMissingColumns();
-        await updateLocationSchema();
-        await insertSampleData();
+
+        // Check and add missing columns for archive functionality
+        await addMissingColumnsPostgres();
+        
     } catch (error) {
         console.error('Database initialization failed:', error);
         process.exit(1);
-    }
-}
-
-// ADD THIS FUNCTION TO CHECK AND ADD MISSING COLUMNS
-async function addMissingColumns() {
-    try {
-        console.log('Checking for missing columns (Postgres)...');
-
-        // Use ALTER TABLE IF NOT EXISTS to add columns safely
-        await dbQuery(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
-        await dbQuery(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP NULL`);
-        await dbQuery(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS image VARCHAR(500) NULL`);
-
-        console.log('✓ Missing columns ensured on locations table');
-    } catch (error) {
-        console.error('Error adding missing columns:', error);
-        throw error; // propagate
-    }
-}
-
-// Add this function to update the database schema
-async function updateLocationSchema() {
-    try {
-        console.log('Ensuring additional columns on locations table...');
-
-        await dbQuery(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS contact VARCHAR(500) NULL`);
-        await dbQuery(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS operating_hours VARCHAR(500) NULL`);
-        await dbQuery(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS fuel_types VARCHAR(500) NULL`);
-        await dbQuery(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS services_offered VARCHAR(500) NULL`);
-        await dbQuery(`ALTER TABLE locations ADD COLUMN IF NOT EXISTS description TEXT NULL`);
-
-        console.log('✓ Location schema updated successfully (Postgres)');
-    } catch (error) {
-        console.error('Error updating location schema:', error);
-        throw error;
-    }
-}
-
-async function createTables() {
-    try {
-        console.log('Creating tables (Postgres)...');
-
-        await dbQuery(`
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                reset_token VARCHAR(6),
-                reset_token_expiry TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-
-        await dbQuery(`
-            CREATE TABLE IF NOT EXISTS locations (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                type VARCHAR(50) NOT NULL CHECK (type IN ('gasoline','repair')),
-                lat NUMERIC(10,8) NOT NULL,
-                lng NUMERIC(11,8) NOT NULL,
-                address TEXT NOT NULL,
-                contact VARCHAR(500),
-                operating_hours VARCHAR(500),
-                fuel_types VARCHAR(500),
-                services_offered VARCHAR(500),
-                description TEXT,
-                image VARCHAR(500),
-                views INTEGER DEFAULT 0,
-                visits INTEGER DEFAULT 0,
-                is_archived BOOLEAN DEFAULT FALSE,
-                archived_at TIMESTAMP NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-
-        await dbQuery(`
-            CREATE TABLE IF NOT EXISTS favorites (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (user_id, location_id)
-            )
-        `);
-
-        await dbQuery(`
-            CREATE TABLE IF NOT EXISTS location_views (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
-                viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-
-        await dbQuery(`
-            CREATE TABLE IF NOT EXISTS location_visits (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
-                visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-
-        await dbQuery(`
-            CREATE TABLE IF NOT EXISTS reviews (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
-                rating SMALLINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
-                comment TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (user_id, location_id)
-            )
-        `);
-
-        await dbQuery(`
-            CREATE TABLE IF NOT EXISTS admins (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-
-        console.log('✓ All tables created successfully (Postgres)');
-    } catch (error) {
-        console.error('Error creating tables:', error);
-        throw error;
-    }
-}
-
-async function insertSampleData() {
-    try {
-        // Insert default admin with ON CONFLICT DO NOTHING
-        const defaultAdminPassword = await bcrypt.hash('admin123', 10);
-        await dbQuery('INSERT INTO admins (username, password) VALUES (?, ?) ON CONFLICT (username) DO NOTHING', ['admin', defaultAdminPassword]);
-        console.log('✓ Default admin ensured');
-
-        // Check if locations already exist
-        const existingLocations = (await dbQuery('SELECT COUNT(*) as count FROM locations')).rows;
-        if (existingLocations[0].count > 0) {
-            console.log('✓ Sample locations already exist');
-            return;
-        }
-
-        console.log('Inserting sample locations...');
-        const sampleLocations = [
-            ["JC & TWIN Gasoline Station", "gasoline", 12.66243, 123.93250, "N.Roque, Bulan, Sorsogon", "09123456789", "6:00 AM - 10:00 PM", "Diesel, Premium, Unleaded", null, "24/7 gas station with convenience store"],
-            ["Fabrica Fuel Station", "gasoline", 12.66603, 123.90009, "Fabrica, Bulan, Sorsogon", "09123456790", "24/7", "Diesel, Premium", null, "Full-service fuel station"],
-            ["Lyca Fuel Station", "gasoline", 12.66599, 123.89275, "Bliss, Bulan, Sorsogon", "09123456791", "5:00 AM - 9:00 PM", "Unleaded, Premium", null, "Reliable fuel station"],
-            ["Bulan Auto Repair", "repair", 12.6689, 123.8741, "Rizal Street, Bulan, Sorsogon", "09123456792", "8:00 AM - 6:00 PM", null, "Oil Change, Brake Repair, Tire Service", "Professional auto repair services"],
-            ["MotoCare Bulan", "repair", 12.6702, 123.8758, "Zone 6, Bulan, Sorsogon", "09123456793", "7:00 AM - 7:00 PM", null, "Engine Repair, Electrical, Suspension", "Expert motorcycle repair"]
-        ];
-
-        for (const location of sampleLocations) {
-            await dbQuery('INSERT INTO locations (name, type, lat, lng, address, contact, operating_hours, fuel_types, services_offered, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', location);
-        }
-
-        console.log('✓ Sample data inserted successfully (Postgres)');
-    } catch (error) {
-        console.error('Error inserting sample data:', error);
-        throw error;
     }
 }
 
@@ -370,14 +336,14 @@ app.post('/api/register', async (req, res) => {
             return res.status(400).json({ error: 'All fields are required' });
         }
 
-        const results = (await dbQuery('SELECT id FROM users WHERE email = ?', [email])).rows;
+        const results = (await dbQuery('SELECT id FROM users WHERE email = $1', [email])).rows;
         if (results.length > 0) {
             return res.status(400).json({ error: 'User already exists' });
         }
         
         const hashedPassword = await bcrypt.hash(password, 10);
         const insertResult = await dbQuery(
-            'INSERT INTO users (name, email, password) VALUES (?, ?, ?) RETURNING id',
+            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id',
             [name, email, hashedPassword]
         );
 
@@ -409,7 +375,7 @@ app.post('/api/login', async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        const results = (await dbQuery('SELECT * FROM users WHERE email = ?', [email])).rows;
+        const results = (await dbQuery('SELECT * FROM users WHERE email = $1', [email])).rows;
         if (results.length === 0) {
             return res.status(400).json({ error: 'Invalid email or password' });
         }
@@ -446,7 +412,7 @@ app.post('/api/forgot-password', async (req, res) => {
             return res.status(400).json({ error: 'Email is required' });
         }
         
-        const results = (await dbQuery('SELECT id FROM users WHERE email = ?', [email])).rows;
+        const results = (await dbQuery('SELECT id FROM users WHERE email = $1', [email])).rows;
         if (results.length === 0) {
             return res.json({ message: 'If the email exists, a reset code has been sent' });
         }
@@ -455,7 +421,7 @@ app.post('/api/forgot-password', async (req, res) => {
         const resetTokenExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000);
         
         await dbQuery(
-            'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?',
+            'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3',
             [resetToken, resetTokenExpiry, email]
         );
         
@@ -502,7 +468,7 @@ app.post('/api/reset-password', async (req, res) => {
         }
         
         const results = (await dbQuery(
-            'SELECT id, reset_token_expiry FROM users WHERE email = ? AND reset_token = ?',
+            'SELECT id, reset_token_expiry FROM users WHERE email = $1 AND reset_token = $2',
             [email, code]
         )).rows;
         
@@ -517,7 +483,7 @@ app.post('/api/reset-password', async (req, res) => {
         
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await dbQuery(
-            'UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE email = ?',
+            'UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2',
             [hashedPassword, email]
         );
         
@@ -537,7 +503,7 @@ app.post('/api/admin-login', async (req, res) => {
             return res.status(400).json({ error: 'Username and password are required' });
         }
         
-        const results = (await dbQuery('SELECT * FROM admins WHERE username = ?', [username])).rows;
+        const results = (await dbQuery('SELECT * FROM admins WHERE username = $1', [username])).rows;
         if (results.length === 0) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -581,7 +547,7 @@ app.get('/api/locations', async (req, res) => {
         let params = [];
         
         if (type && type !== 'all') {
-            query += ' AND type = ?';
+            query += ' AND type = $1';
             params.push(type);
         }
         
@@ -617,7 +583,7 @@ app.get('/api/admin/locations', authenticateAdmin, async (req, res) => {
             if (type === 'station') dbType = 'gasoline';
             if (type === 'shop') dbType = 'repair';
             
-            query += ' AND type = ?';
+            query += ' AND type = $1';
             params.push(dbType);
         }
         
@@ -640,7 +606,7 @@ app.get('/api/admin/locations', authenticateAdmin, async (req, res) => {
 app.get('/api/favorites', authenticateToken, async (req, res) => {
     try {
         const results = (await dbQuery(
-            'SELECT location_id FROM favorites WHERE user_id = ?',
+            'SELECT location_id FROM favorites WHERE user_id = $1',
             [req.user.id]
         )).rows;
         res.json(results.map(row => ({ location_id: row.location_id })));
@@ -655,7 +621,7 @@ app.post('/api/favorites', authenticateToken, async (req, res) => {
     try {
         const { location_id } = req.body;
         await dbQuery(
-            'INSERT INTO favorites (user_id, location_id) VALUES (?, ?)',
+            'INSERT INTO favorites (user_id, location_id) VALUES ($1, $2)',
             [req.user.id, location_id]
         );
         res.json({ message: 'Added to favorites' });
@@ -673,7 +639,7 @@ app.post('/api/favorites', authenticateToken, async (req, res) => {
 app.delete('/api/favorites/:locationId', authenticateToken, async (req, res) => {
     try {
         const result = await dbQuery(
-            'DELETE FROM favorites WHERE user_id = ? AND location_id = ?',
+            'DELETE FROM favorites WHERE user_id = $1 AND location_id = $2',
             [req.user.id, req.params.locationId]
         );
         if (result.rowCount === 0) {
@@ -750,14 +716,14 @@ app.get('/api/locations/:id/reviews', async (req, res) => {
             SELECT r.*, u.name as user_name 
             FROM reviews r 
             JOIN users u ON r.user_id = u.id 
-            WHERE r.location_id = ? 
+            WHERE r.location_id = $1 
             ORDER BY r.created_at DESC
         `, [locationId])).rows;
         
         const avgResult = (await dbQuery(`
             SELECT AVG(rating) as average_rating, COUNT(*) as review_count 
             FROM reviews 
-            WHERE location_id = ?
+            WHERE location_id = $1
         `, [locationId])).rows;
         
         const averageRating = avgResult[0].average_rating ? parseFloat(avgResult[0].average_rating).toFixed(1) : 0;
@@ -793,16 +759,16 @@ app.post('/api/locations/:id/reviews', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Rating must be between 1 and 5' });
         }
         
-        const existingReview = (await dbQuery('SELECT id FROM reviews WHERE user_id = ? AND location_id = ?', [userId, locationId])).rows;
+        const existingReview = (await dbQuery('SELECT id FROM reviews WHERE user_id = $1 AND location_id = $2', [userId, locationId])).rows;
 
         if (existingReview.length > 0) {
-            await dbQuery('UPDATE reviews SET rating = ?, comment = ? WHERE user_id = ? AND location_id = ?', [rating, comment, userId, locationId]);
+            await dbQuery('UPDATE reviews SET rating = $1, comment = $2 WHERE user_id = $3 AND location_id = $4', [rating, comment, userId, locationId]);
             
             return res.json({ message: 'Review updated successfully' });
         }
         
         await dbQuery(
-            'INSERT INTO reviews (user_id, location_id, rating, comment) VALUES (?, ?, ?, ?)',
+            'INSERT INTO reviews (user_id, location_id, rating, comment) VALUES ($1, $2, $3, $4)',
             [userId, locationId, rating, comment]
         );
         
@@ -817,8 +783,8 @@ app.post('/api/locations/:id/reviews', authenticateToken, async (req, res) => {
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     try {
     const userCount = (await dbQuery('SELECT COUNT(*) as count FROM users')).rows;
-    const stationCount = (await dbQuery('SELECT COUNT(*) as count FROM locations WHERE type = ? AND is_archived = FALSE', ['gasoline'])).rows;
-    const shopCount = (await dbQuery('SELECT COUNT(*) as count FROM locations WHERE type = ? AND is_archived = FALSE', ['repair'])).rows;
+    const stationCount = (await dbQuery('SELECT COUNT(*) as count FROM locations WHERE type = $1 AND is_archived = FALSE', ['gasoline'])).rows;
+    const shopCount = (await dbQuery('SELECT COUNT(*) as count FROM locations WHERE type = $1 AND is_archived = FALSE', ['repair'])).rows;
     const visitCount = (await dbQuery('SELECT COUNT(*) as count FROM location_visits')).rows;
 
     const locations = (await dbQuery('SELECT * FROM locations WHERE is_archived = FALSE')).rows;
@@ -845,7 +811,7 @@ app.get('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
     try {
         const locationId = req.params.id;
         
-        const location = (await dbQuery('SELECT * FROM locations WHERE id = ?', [locationId])).rows;
+        const location = (await dbQuery('SELECT * FROM locations WHERE id = $1', [locationId])).rows;
 
         if (location.length === 0) {
             return res.status(404).json({ error: 'Location not found' });
@@ -922,12 +888,12 @@ app.post('/api/admin/locations', authenticateAdmin, upload.single('image'), asyn
 
         const result = await dbQuery(
             `INSERT INTO locations (name, address, lat, lng, type, contact, operating_hours, fuel_types, services_offered, description, image) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
             [name, address, latNum, lngNum, normalizedType, contact, operating_hours, fuel_types, services_offered, description || null, imageUrl]
         );
 
         const newId = result.rows[0].id;
-        const newLocation = (await dbQuery('SELECT * FROM locations WHERE id = ?', [newId])).rows[0];
+        const newLocation = (await dbQuery('SELECT * FROM locations WHERE id = $1', [newId])).rows[0];
 
         res.status(201).json({ 
             message: 'Location added successfully',
@@ -984,17 +950,19 @@ app.put('/api/admin/locations/:id', authenticateAdmin, upload.single('image'), a
 
         // Build update query; include image if provided
         let query = `UPDATE locations SET 
-                name = ?, address = ?, lat = ?, lng = ?, type = ?,
-                contact = ?, operating_hours = ?, fuel_types = ?, services_offered = ?, description = ?`;
+                name = $1, address = $2, lat = $3, lng = $4, type = $5,
+                contact = $6, operating_hours = $7, fuel_types = $8, services_offered = $9, description = $10`;
         const params = [name, address, latNum, lngNum, normalizedType, contact, operating_hours, fuel_types, services_offered, description || null];
 
         if (imageUrl) {
-            query += `, image = ?`;
+            query += `, image = $11`;
             params.push(imageUrl);
+            query += ` WHERE id = $12`;
+            params.push(locationId);
+        } else {
+            query += ` WHERE id = $11`;
+            params.push(locationId);
         }
-
-        query += ` WHERE id = ?`;
-        params.push(locationId);
 
         const result = await dbQuery(query, params);
 
@@ -1011,12 +979,12 @@ app.put('/api/admin/locations/:id', authenticateAdmin, upload.single('image'), a
     }
 });
 
-// Helper functions for archive/unarchive
+// FIXED: Helper functions for archive/unarchive - PostgreSQL compatible
 async function archiveLocationHandler(req, res) {
     try {
         const locationId = req.params.id;
         const result = await dbQuery(
-            'UPDATE locations SET is_archived = TRUE, archived_at = CURRENT_TIMESTAMP WHERE id = ?',
+            'UPDATE locations SET is_archived = TRUE, archived_at = CURRENT_TIMESTAMP WHERE id = $1',
             [locationId]
         );
 
@@ -1035,7 +1003,7 @@ async function unarchiveLocationHandler(req, res) {
     try {
         const locationId = req.params.id;
         const result = await dbQuery(
-            'UPDATE locations SET is_archived = FALSE, archived_at = NULL WHERE id = ?',
+            'UPDATE locations SET is_archived = FALSE, archived_at = NULL WHERE id = $1',
             [locationId]
         );
 
@@ -1058,20 +1026,49 @@ app.post('/api/admin/locations/:id/archive', authenticateAdmin, archiveLocationH
 app.put('/api/admin/locations/:id/unarchive', authenticateAdmin, unarchiveLocationHandler);
 app.post('/api/admin/locations/:id/unarchive', authenticateAdmin, unarchiveLocationHandler);
 
-// Admin: Get archived locations
+// FIXED: Admin: Get archived locations - PostgreSQL compatible
 app.get('/api/admin/locations/archived', authenticateAdmin, async (req, res) => {
     try {
-        const type = req.query.type;
+        const { type } = req.query;
+
+        let query, params;
 
         if (type && (type === 'gasoline' || type === 'repair')) {
-            const locations = (await dbQuery('SELECT * FROM locations WHERE is_archived = TRUE AND type = ?', [type])).rows;
-            return res.json({ locations });
+            query = 'SELECT * FROM locations WHERE is_archived = TRUE AND type = $1';
+            params = [type];
+        } else if (type === 'station') {
+            query = 'SELECT * FROM locations WHERE is_archived = TRUE AND type = $1';
+            params = ['gasoline'];
+        } else if (type === 'shop') {
+            query = 'SELECT * FROM locations WHERE is_archived = TRUE AND type = $1';
+            params = ['repair'];
+        } else {
+            query = 'SELECT * FROM locations WHERE is_archived = TRUE';
+            params = [];
         }
-        const locations = (await dbQuery('SELECT * FROM locations WHERE is_archived = TRUE')).rows;
+
+        const result = await dbQuery(query, params);
+        const locations = result.rows;
+
+        // For backward compatibility with frontend
+        if (type && (type === 'gasoline' || type === 'station')) {
+            return res.json({ 
+                locations: locations,
+                archivedStations: locations 
+            });
+        } else if (type && (type === 'repair' || type === 'shop')) {
+            return res.json({ 
+                locations: locations,
+                archivedShops: locations 
+            });
+        }
+
+        // If no specific type requested, return both
         const archivedStations = locations.filter(loc => loc.type === 'gasoline');
         const archivedShops = locations.filter(loc => loc.type === 'repair');
 
         res.json({
+            locations: locations,
             archivedStations,
             archivedShops
         });
@@ -1093,7 +1090,7 @@ app.post('/api/admin/locations/:id/image', authenticateAdmin, upload.single('ima
         const imageUrl = `/uploads/${req.file.filename}`;
 
         const result = await dbQuery(
-            'UPDATE locations SET image = ? WHERE id = ?',
+            'UPDATE locations SET image = $1 WHERE id = $2',
             [imageUrl, locationId]
         );
 
@@ -1123,7 +1120,7 @@ app.delete('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
         const locationId = req.params.id;
 
         // First get the location to check if it has an image
-        const location = (await dbQuery('SELECT image FROM locations WHERE id = ?', [locationId])).rows;
+        const location = (await dbQuery('SELECT image FROM locations WHERE id = $1', [locationId])).rows;
 
         const client = await pool.connect();
         await client.query('BEGIN');
@@ -1217,5 +1214,3 @@ process.on('uncaughtException', (err) => {
     }
     // Do not exit automatically in dev — allow process to continue if possible
 });
-
-// Helper: replace remaining pool.query usages (if any) with dbQuery
