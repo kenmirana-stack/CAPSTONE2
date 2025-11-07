@@ -1411,8 +1411,6 @@
                         <input type="text" class="form-input" id="services-offered" placeholder="e.g., Oil Change, Brake Repair, Tire Service">
                     </div>
                 </div>
-
-                <!-- Additional information removed (description and image upload) -->
                 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-cancel" id="cancel-edit">Cancel</button>
@@ -1661,7 +1659,7 @@
         }
     });
 
-    // Load dashboard data - FIXED
+    // Load dashboard data
     async function loadDashboardData() {
         try {
             const token = localStorage.getItem('adminToken');
@@ -1691,14 +1689,14 @@
         }
     }
 
-    // Load stations for Gas Stations tab - FIXED
+    // Load stations for Gas Stations tab
     async function loadStations() {
         const list = document.getElementById('stations-list');
         list.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading stations...</p>';
         
         try {
             const token = localStorage.getItem('adminToken');
-            const response = await fetch(`${API_BASE}/api/locations?type=gasoline`, {
+            const response = await fetch(`${API_BASE}/api/admin/locations?type=station`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -1747,14 +1745,14 @@
         }
     }
 
-    // Load shops for Repair Shops tab - FIXED
+    // Load shops for Repair Shops tab
     async function loadShops() {
         const list = document.getElementById('shops-list');
         list.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading shops...</p>';
         
         try {
             const token = localStorage.getItem('adminToken');
-            const response = await fetch(`${API_BASE}/api/locations?type=repair`, {
+            const response = await fetch(`${API_BASE}/api/admin/locations?type=shop`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -1803,7 +1801,7 @@
         }
     }
 
-    // Load archived locations - FIXED
+    // FIXED: Load archived locations
     async function loadArchivedLocations() {
         // Show loading states
         document.getElementById('archived-stations-list').innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived stations...</p>';
@@ -1968,9 +1966,7 @@
         });
     }
 
-    // Image upload and description removed from admin form
-
-    // Edit location function - FIXED
+    // Edit location function
     async function editLocation(type, id) {
         document.getElementById('modal-title').textContent = `Edit ${type === 'station' ? 'Gas Station' : 'Repair Shop'}`;
         document.getElementById('location-type').value = type;
@@ -2013,8 +2009,6 @@
             } else {
                 document.getElementById('services-offered').value = location.services_offered || '';
             }
-            
-            // Image handling removed in admin UI
         } catch (error) {
             console.error('Error fetching location:', error);
             showToast('Failed to load location data', 'error');
@@ -2117,7 +2111,7 @@
         }
     });
 
-    // Form submission - FIXED
+    // Form submission
     locationForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -2125,9 +2119,9 @@
         const id = document.getElementById('location-id').value;
         const name = document.getElementById('location-name').value;
         const address = document.getElementById('location-address').value;
-    const coordinates = document.getElementById('location-coordinates').value.split(',').map(coord => coord.trim());
-    const lat = parseFloat(coordinates[0]);
-    const lng = parseFloat(coordinates[1]);
+        const coordinates = document.getElementById('location-coordinates').value.split(',').map(coord => coord.trim());
+        const lat = parseFloat(coordinates[0]);
+        const lng = parseFloat(coordinates[1]);
         const contact = document.getElementById('location-contact').value;
         const operating_hours = document.getElementById('location-hours').value;
         const fuel_types = document.getElementById('fuel-types').value;
@@ -2157,8 +2151,6 @@
                 formData.append('services_offered', services_offered);
             }
 
-            // Image upload removed from admin UI
-
             const token = localStorage.getItem('adminToken');
             let endpoint, method;
 
@@ -2176,7 +2168,6 @@
                 method: method,
                 headers: {
                     'Authorization': `Bearer ${token}`
-                    // Don't set Content-Type for FormData - let browser set it with boundary
                 },
                 body: formData
             });
@@ -2215,8 +2206,8 @@
         document.getElementById('gas-station-fields').style.display = 'block';
         document.getElementById('repair-shop-fields').style.display = 'none';
         
-    // Clear form
-    locationForm.reset();
+        // Clear form
+        locationForm.reset();
         
         editModal.style.display = 'flex';
     });
@@ -2229,8 +2220,8 @@
         document.getElementById('gas-station-fields').style.display = 'none';
         document.getElementById('repair-shop-fields').style.display = 'block';
         
-    // Clear form
-    locationForm.reset();
+        // Clear form
+        locationForm.reset();
         
         editModal.style.display = 'flex';
     });
@@ -2290,5 +2281,4 @@
     });
 </script>
 </body>
-
 </html>
