@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MOONRIDER Admin Panel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="" />
     <style>
         * {
             box-sizing: border-box;
@@ -553,26 +557,15 @@
             box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
         }
         
-        .btn-archive {
+        .btn-delete {
             background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
             color: white;
             box-shadow: 0 3px 10px rgba(255, 107, 107, 0.3);
         }
         
-        .btn-archive:hover {
+        .btn-delete:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
-        }
-        
-        .btn-unarchive {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
-            box-shadow: 0 3px 10px rgba(17, 153, 142, 0.3);
-        }
-        
-        .btn-unarchive:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
         }
         
         .btn-add {
@@ -605,7 +598,7 @@
             background-color: white;
             border-radius: 20px;
             width: 90%;
-            max-width: 600px;
+            max-width: 700px;
             max-height: 90vh;
             overflow-y: auto;
             padding: 30px;
@@ -672,6 +665,7 @@
         
         .form-group {
             margin-bottom: 15px;
+            position: relative;
         }
         
         .form-label {
@@ -679,6 +673,11 @@
             margin-bottom: 8px;
             font-weight: 600;
             color: #667eea;
+        }
+        
+        .form-label.required:after {
+            content: " *";
+            color: #dc3545;
         }
         
         .form-input, .form-select, .form-textarea {
@@ -689,6 +688,11 @@
             font-size: 1rem;
             transition: all 0.3s;
             min-height: 44px;
+        }
+        
+        .form-input.error, .form-select.error, .form-textarea.error {
+            border-color: #dc3545;
+            background-color: rgba(220, 53, 69, 0.05);
         }
         
         .form-textarea {
@@ -759,130 +763,127 @@
             box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
         }
         
-        /* Image Upload Styles */
-        .image-upload-container {
-            margin-bottom: 20px;
+        .btn-save:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
         
-        .image-preview {
-            width: 100%;
-            max-height: 200px;
+        /* Map Styles */
+        .map-container {
+            height: 300px;
             border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #e0e0e0;
             margin-top: 10px;
-            display: none;
-            object-fit: cover;
-            border: 2px dashed #e0e0e0;
+            position: relative;
         }
         
-        .image-upload-area {
-            border: 2px dashed #667eea;
-            border-radius: 10px;
-            padding: 25px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: rgba(102, 126, 234, 0.05);
-        }
-        
-        .image-upload-area:hover {
-            background: rgba(102, 126, 234, 0.1);
-        }
-        
-        .image-upload-area i {
-            font-size: 2.5rem;
-            color: #667eea;
-            margin-bottom: 10px;
-        }
-        
-        .image-upload-text {
-            color: #667eea;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .image-upload-subtext {
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-        
-        .image-upload-btn {
-            display: inline-block;
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: #667eea;
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .image-upload-btn:hover {
-            background: #5a6fd8;
-        }
-        
-        .remove-image-btn {
-            display: none;
-            margin-top: 10px;
-            padding: 8px 16px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .remove-image-btn:hover {
-            background: #c82333;
-        }
-        
-        /* Confirmation Dialog - Enhanced */
-        .confirmation-dialog {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
+        .map-container .leaflet-container {
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(5px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
+            width: 100%;
         }
         
-        .dialog-content {
-            background-color: white;
-            border-radius: 20px;
-            width: 90%;
-            max-width: 420px;
-            padding: 30px;
-            text-align: center;
-            animation: modalSlideUp 0.3s ease;
-        }
-        
-        .dialog-title {
-            font-size: 1.4rem;
-            margin-bottom: 18px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: 700;
-        }
-        
-        .dialog-message {
-            margin-bottom: 25px;
-            color: #6c757d;
-            font-size: 1.05rem;
-        }
-        
-        .dialog-buttons {
+        .map-controls {
             display: flex;
-            justify-content: center;
-            gap: 15px;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .map-controls .btn {
+            flex: 1;
+            min-width: 140px;
+        }
+        
+        .coordinates-display {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .coordinates-display .form-input {
+            flex: 1;
+        }
+        
+        .validation-error {
+            color: #dc3545;
+            font-size: 0.85rem;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .validation-error.show {
+            display: block;
+        }
+        
+        /* Address Search Suggestions */
+        .address-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .address-suggestions.show {
+            display: block;
+        }
+        
+        .suggestion-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .suggestion-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .suggestion-item .address {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .suggestion-item .details {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+        
+        /* Search Bar */
+        .search-container {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 12px 45px 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            min-height: 44px;
+        }
+        
+        .search-button {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            padding: 8px;
+            min-height: 44px;
+            min-width: 44px;
         }
         
         /* Popular Section */
@@ -951,6 +952,17 @@
         
         .toast.warning i {
             color: #ffc107;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
         
         /* Mobile Responsive Styles - Enhanced */
@@ -1051,12 +1063,16 @@
                 min-width: 120px;
             }
             
-            .image-upload-area {
-                padding: 15px;
-            }
-            
             .form-row {
                 grid-template-columns: 1fr;
+            }
+            
+            .map-controls .btn {
+                min-width: 100%;
+            }
+            
+            .coordinates-display {
+                flex-direction: column;
             }
         }
         
@@ -1164,10 +1180,6 @@
                 <a href="#" class="menu-item" data-tab="repair-shops">
                     <i class="fas fa-tools"></i>
                     <span>Repair Shops</span>
-                </a>
-                <a href="#" class="menu-item" data-tab="archive">
-                    <i class="fas fa-archive"></i>
-                    <span>Archive</span>
                 </a>
             </div>
             
@@ -1316,44 +1328,10 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- Archive Tab -->
-            <div id="archive-tab" class="tab-content">
-                <div class="header">
-                    <h1><i class="fas fa-archive"></i> Archive Management</h1>
-                    <div class="user-info">
-                        <img src="https://ui-avatars.com/api/?name=Admin&background=667eea&color=fff" alt="Admin">
-                        <div>
-                            <h4 style="color: #667eea;">Administrator</h4>
-                            <p style="font-size: 0.85rem; color: #6c757d;">Full Access</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="locations-container">
-                    <div class="location-card">
-                        <div class="location-header">
-                            <h3 class="location-title"><i class="fas fa-gas-pump"></i> Archived Gas Stations</h3>
-                        </div>
-                        <div class="activity-list" id="archived-stations-list">
-                            <p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived stations...</p>
-                        </div>
-                    </div>
-                    
-                    <div class="location-card">
-                        <div class="location-header">
-                            <h3 class="location-title"><i class="fas fa-tools"></i> Archived Repair Shops</h3>
-                        </div>
-                        <div class="activity-list" id="archived-shops-list">
-                            <p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived shops...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
-    <!-- Edit Modal -->
+    <!-- Edit Modal with Map -->
     <div class="modal" id="edit-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1368,28 +1346,62 @@
                     <div class="form-section-title">Basic Information</div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" for="location-name"><i class="fas fa-building"></i> Name</label>
+                            <label class="form-label required" for="location-name"><i class="fas fa-building"></i> Name</label>
                             <input type="text" class="form-input" id="location-name" placeholder="Enter location name" required>
+                            <div class="validation-error" id="name-error">Please enter a valid name</div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="location-contact"><i class="fas fa-phone"></i> Contact</label>
                             <input type="text" class="form-input" id="location-contact" placeholder="Enter contact number">
+                            <div class="validation-error" id="contact-error">Please enter a valid contact number</div>
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label" for="location-address"><i class="fas fa-map-marker-alt"></i> Address</label>
-                        <input type="text" class="form-input" id="location-address" placeholder="Enter location address" required>
+                        <label class="form-label required" for="location-address"><i class="fas fa-map-marker-alt"></i> Address</label>
+                        <div class="search-container">
+                            <input type="text" class="form-input" id="location-address" placeholder="Enter location address or search..." required>
+                            <button type="button" class="search-button" id="search-address-btn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <div class="address-suggestions" id="address-suggestions"></div>
+                        </div>
+                        <div class="validation-error" id="address-error">Please enter a valid address</div>
+                    </div>
+                    
+                    <!-- Map Container -->
+                    <div class="form-group">
+                        <label class="form-label required"><i class="fas fa-map-marked-alt"></i> Select Location on Map</label>
+                        <div class="map-container" id="map-container">
+                            <!-- Map will be loaded here -->
+                        </div>
+                        <div class="map-controls">
+                            <button type="button" class="btn" id="use-current-location" style="background: #667eea; color: white;">
+                                <i class="fas fa-location-arrow"></i> Use My Location
+                            </button>
+                            <button type="button" class="btn" id="clear-marker" style="background: #6c757d; color: white;">
+                                <i class="fas fa-times"></i> Clear Marker
+                            </button>
+                        </div>
+                        <div class="validation-error" id="map-error">Please select a location on the map</div>
+                    </div>
+                    
+                    <div class="coordinates-display">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label"><i class="fas fa-latitude"></i> Latitude</label>
+                            <input type="text" class="form-input" id="location-lat" placeholder="Click on map" readonly>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label"><i class="fas fa-longitude"></i> Longitude</label>
+                            <input type="text" class="form-input" id="location-lng" placeholder="Click on map" readonly>
+                        </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" for="location-coordinates"><i class="fas fa-compass"></i> Coordinates</label>
-                            <input type="text" class="form-input" id="location-coordinates" placeholder="Enter coordinates (lat, lng)" required>
-                        </div>
-                        <div class="form-group">
                             <label class="form-label" for="location-hours"><i class="fas fa-clock"></i> Operating Hours</label>
                             <input type="text" class="form-input" id="location-hours" placeholder="e.g., 8:00 AM - 8:00 PM">
+                            <div class="validation-error" id="hours-error">Please enter valid operating hours</div>
                         </div>
                     </div>
                 </div>
@@ -1398,8 +1410,9 @@
                 <div class="form-section" id="gas-station-fields">
                     <div class="form-section-title">Gas Station Information</div>
                     <div class="form-group">
-                        <label class="form-label" for="fuel-types"><i class="fas fa-gas-pump"></i> Fuel Types</label>
-                        <input type="text" class="form-input" id="fuel-types" placeholder="e.g., Diesel, Premium, Unleaded">
+                        <label class="form-label required" for="fuel-types"><i class="fas fa-gas-pump"></i> Fuel Types</label>
+                        <input type="text" class="form-input" id="fuel-types" placeholder="e.g., Diesel, Premium, Unleaded" required>
+                        <div class="validation-error" id="fuel-error">Please enter at least one fuel type</div>
                     </div>
                 </div>
 
@@ -1407,46 +1420,39 @@
                 <div class="form-section" id="repair-shop-fields">
                     <div class="form-section-title">Repair Shop Information</div>
                     <div class="form-group">
-                        <label class="form-label" for="services-offered"><i class="fas fa-tools"></i> Services Offered</label>
-                        <input type="text" class="form-input" id="services-offered" placeholder="e.g., Oil Change, Brake Repair, Tire Service">
+                        <label class="form-label required" for="services-offered"><i class="fas fa-tools"></i> Services Offered</label>
+                        <input type="text" class="form-input" id="services-offered" placeholder="e.g., Oil Change, Brake Repair, Tire Service" required>
+                        <div class="validation-error" id="services-error">Please enter at least one service</div>
                     </div>
                 </div>
                 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-cancel" id="cancel-edit">Cancel</button>
-                    <button type="submit" class="btn btn-save" id="save-location">Save Changes</button>
+                    <button type="submit" class="btn btn-save" id="save-location" disabled>Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Confirmation Dialog - Archive -->
-    <div class="confirmation-dialog" id="archive-confirmation">
+    <!-- Confirmation Dialog - Delete -->
+    <div class="confirmation-dialog" id="delete-confirmation">
         <div class="dialog-content">
-            <h3 class="dialog-title"><i class="fas fa-archive"></i> Confirm Archive</h3>
-            <p class="dialog-message">Are you sure you want to archive this location? It will be moved to the archive section.</p>
+            <h3 class="dialog-title"><i class="fas fa-trash"></i> Confirm Delete</h3>
+            <p class="dialog-message">Are you sure you want to delete this location? This action cannot be undone.</p>
             
             <div class="dialog-buttons">
-                <button class="btn btn-cancel" id="cancel-archive">Cancel</button>
-                <button class="btn btn-archive" id="confirm-archive">Archive</button>
+                <button class="btn btn-cancel" id="cancel-delete">Cancel</button>
+                <button class="btn btn-delete" id="confirm-delete">Delete</button>
             </div>
         </div>
     </div>
 
-    <!-- Confirmation Dialog - Unarchive -->
-    <div class="confirmation-dialog" id="unarchive-confirmation">
-        <div class="dialog-content">
-            <h3 class="dialog-title"><i class="fas fa-box-open"></i> Confirm Unarchive</h3>
-            <p class="dialog-message">Are you sure you want to unarchive this location? It will be restored to the active locations.</p>
-            
-            <div class="dialog-buttons">
-                <button class="btn btn-cancel" id="cancel-unarchive">Cancel</button>
-                <button class="btn btn-unarchive" id="confirm-unarchive">Unarchive</button>
-            </div>
-        </div>
-    </div>
-
-   <script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <script>
     // API Configuration
     const API_BASE = 'https://capstone2-b2jk.onrender.com';
     
@@ -1467,15 +1473,489 @@
     const closeModal = document.getElementById('close-modal');
     const cancelEdit = document.getElementById('cancel-edit');
     const locationForm = document.getElementById('location-form');
-    const archiveConfirmation = document.getElementById('archive-confirmation');
-    const cancelArchive = document.getElementById('cancel-archive');
-    const confirmArchive = document.getElementById('confirm-archive');
-    const unarchiveConfirmation = document.getElementById('unarchive-confirmation');
-    const cancelUnarchive = document.getElementById('cancel-unarchive');
-    const confirmUnarchive = document.getElementById('confirm-unarchive');
+    const deleteConfirmation = document.getElementById('delete-confirmation');
+    const cancelDelete = document.getElementById('cancel-delete');
+    const confirmDelete = document.getElementById('confirm-delete');
+    const saveLocationBtn = document.getElementById('save-location');
 
-    // Current archive/unarchive context
-    let currentArchiveContext = { type: null, id: null };
+    // Map variables
+    let map = null;
+    let marker = null;
+    let currentLocationSelected = false;
+    
+    // Validation state
+    const validationState = {
+        name: false,
+        address: false,
+        location: false,
+        fuel: false,
+        services: false
+    };
+
+    // Current delete context
+    let currentDeleteContext = { type: null, id: null };
+
+    // Initialize Leaflet map
+    function initMap() {
+        if (!document.getElementById('map-container')) return;
+        
+        // Clear existing map if any
+        if (map) {
+            map.remove();
+            map = null;
+            marker = null;
+        }
+        
+        // Initialize map centered on Philippines
+        map = L.map('map-container').setView([14.5995, 120.9842], 13);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Add click event to place marker
+        map.on('click', function(e) {
+            placeMarker(e.latlng);
+            updateCoordinates(e.latlng.lat, e.latlng.lng);
+            reverseGeocode(e.latlng.lat, e.latlng.lng);
+            validateLocation();
+        });
+        
+        // Add event listeners for map controls
+        document.getElementById('use-current-location').addEventListener('click', useCurrentLocation);
+        document.getElementById('clear-marker').addEventListener('click', clearMarker);
+        document.getElementById('search-address-btn').addEventListener('click', searchAddress);
+        
+        // Also search on Enter key in address field
+        document.getElementById('location-address').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchAddress();
+            }
+        });
+        
+        // Initialize address suggestions
+        initAddressSuggestions();
+    }
+
+    // Place marker on map
+    function placeMarker(latlng) {
+        if (marker) {
+            marker.setLatLng(latlng);
+        } else {
+            marker = L.marker(latlng, {
+                draggable: true,
+                title: "Drag to adjust location"
+            }).addTo(map);
+            
+            // Update coordinates when marker is dragged
+            marker.on('dragend', function(e) {
+                const position = marker.getLatLng();
+                updateCoordinates(position.lat, position.lng);
+                reverseGeocode(position.lat, position.lng);
+            });
+        }
+        
+        // Center map on marker
+        map.setView(latlng, 15);
+        currentLocationSelected = true;
+    }
+
+    // Clear marker from map
+    function clearMarker() {
+        if (marker) {
+            map.removeLayer(marker);
+            marker = null;
+        }
+        document.getElementById('location-lat').value = '';
+        document.getElementById('location-lng').value = '';
+        currentLocationSelected = false;
+        validateLocation();
+    }
+
+    // Update coordinate display
+    function updateCoordinates(lat, lng) {
+        document.getElementById('location-lat').value = lat.toFixed(6);
+        document.getElementById('location-lng').value = lng.toFixed(6);
+    }
+
+    // Use current geolocation
+    function useCurrentLocation() {
+        if (!navigator.geolocation) {
+            showToast('Geolocation is not supported by your browser', 'error');
+            return;
+        }
+        
+        showToast('Getting your location...', 'info');
+        
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+                placeMarker(latlng);
+                updateCoordinates(latlng.lat, latlng.lng);
+                reverseGeocode(latlng.lat, latlng.lng);
+                showToast('Location found!', 'success');
+            },
+            function(error) {
+                console.error('Geolocation error:', error);
+                showToast('Unable to get your location. Please select manually on the map.', 'error');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    }
+
+    // Search address using Nominatim (OpenStreetMap)
+    async function searchAddress() {
+        const address = document.getElementById('location-address').value.trim();
+        if (!address) {
+            showToast('Please enter an address to search', 'warning');
+            return;
+        }
+        
+        showToast('Searching address...', 'info');
+        
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5`,
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'MOONRIDER-AdminPanel/1.0'
+                    }
+                }
+            );
+            
+            if (!response.ok) throw new Error('Search failed');
+            
+            const results = await response.json();
+            
+            if (results.length === 0) {
+                showToast('No results found for this address', 'warning');
+                return;
+            }
+            
+            // Take the first result (most relevant)
+            const result = results[0];
+            const latlng = L.latLng(parseFloat(result.lat), parseFloat(result.lon));
+            
+            placeMarker(latlng);
+            updateCoordinates(latlng.lat, latlng.lng);
+            document.getElementById('location-address').value = result.display_name;
+            
+            showToast('Address found!', 'success');
+            validateAddress();
+            
+        } catch (error) {
+            console.error('Address search error:', error);
+            showToast('Failed to search address. Please try again.', 'error');
+        }
+    }
+
+    // Reverse geocode coordinates to address
+    async function reverseGeocode(lat, lng) {
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'MOONRIDER-AdminPanel/1.0'
+                    }
+                }
+            );
+            
+            if (!response.ok) throw new Error('Reverse geocode failed');
+            
+            const result = await response.json();
+            
+            if (result.display_name) {
+                document.getElementById('location-address').value = result.display_name;
+                validateAddress();
+            }
+        } catch (error) {
+            console.error('Reverse geocode error:', error);
+            // Don't show error toast as this is a background process
+        }
+    }
+
+    // Initialize address suggestions
+    function initAddressSuggestions() {
+        const addressInput = document.getElementById('location-address');
+        const suggestionsContainer = document.getElementById('address-suggestions');
+        let searchTimeout;
+        
+        addressInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            
+            if (query.length < 3) {
+                suggestionsContainer.classList.remove('show');
+                return;
+            }
+            
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(
+                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
+                        {
+                            headers: {
+                                'Accept': 'application/json',
+                                'User-Agent': 'MOONRIDER-AdminPanel/1.0'
+                            }
+                        }
+                    );
+                    
+                    if (!response.ok) throw new Error('Suggestions failed');
+                    
+                    const results = await response.json();
+                    
+                    if (results.length === 0) {
+                        suggestionsContainer.classList.remove('show');
+                        return;
+                    }
+                    
+                    suggestionsContainer.innerHTML = '';
+                    results.forEach(result => {
+                        const div = document.createElement('div');
+                        div.className = 'suggestion-item';
+                        div.innerHTML = `
+                            <div class="address">${result.display_name}</div>
+                            <div class="details">${result.type}</div>
+                        `;
+                        
+                        div.addEventListener('click', function() {
+                            const latlng = L.latLng(parseFloat(result.lat), parseFloat(result.lon));
+                            placeMarker(latlng);
+                            updateCoordinates(latlng.lat, latlng.lng);
+                            addressInput.value = result.display_name;
+                            suggestionsContainer.classList.remove('show');
+                            validateAddress();
+                            showToast('Address selected!', 'success');
+                        });
+                        
+                        suggestionsContainer.appendChild(div);
+                    });
+                    
+                    suggestionsContainer.classList.add('show');
+                } catch (error) {
+                    console.error('Suggestions error:', error);
+                    suggestionsContainer.classList.remove('show');
+                }
+            }, 300);
+        });
+        
+        // Close suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!addressInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+                suggestionsContainer.classList.remove('show');
+            }
+        });
+        
+        // Close suggestions on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                suggestionsContainer.classList.remove('show');
+            }
+        });
+    }
+
+    // Validation functions
+    function validateName() {
+        const name = document.getElementById('location-name').value.trim();
+        const errorElement = document.getElementById('name-error');
+        const isValid = name.length >= 2 && name.length <= 100;
+        
+        validationState.name = isValid;
+        
+        if (!isValid && name.length > 0) {
+            errorElement.textContent = 'Name must be between 2 and 100 characters';
+            errorElement.classList.add('show');
+            document.getElementById('location-name').classList.add('error');
+        } else if (!isValid) {
+            errorElement.textContent = 'Please enter a location name';
+            errorElement.classList.add('show');
+            document.getElementById('location-name').classList.add('error');
+        } else {
+            errorElement.classList.remove('show');
+            document.getElementById('location-name').classList.remove('error');
+        }
+        
+        updateSaveButton();
+        return isValid;
+    }
+
+    function validateAddress() {
+        const address = document.getElementById('location-address').value.trim();
+        const errorElement = document.getElementById('address-error');
+        const isValid = address.length >= 5 && address.length <= 200;
+        
+        validationState.address = isValid;
+        
+        if (!isValid && address.length > 0) {
+            errorElement.textContent = 'Address must be between 5 and 200 characters';
+            errorElement.classList.add('show');
+            document.getElementById('location-address').classList.add('error');
+        } else if (!isValid) {
+            errorElement.textContent = 'Please enter a valid address';
+            errorElement.classList.add('show');
+            document.getElementById('location-address').classList.add('error');
+        } else {
+            errorElement.classList.remove('show');
+            document.getElementById('location-address').classList.remove('error');
+        }
+        
+        updateSaveButton();
+        return isValid;
+    }
+
+    function validateLocation() {
+        const lat = document.getElementById('location-lat').value.trim();
+        const lng = document.getElementById('location-lng').value.trim();
+        const errorElement = document.getElementById('map-error');
+        
+        const isValid = lat !== '' && lng !== '' && 
+                       !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng)) &&
+                       parseFloat(lat) >= -90 && parseFloat(lat) <= 90 &&
+                       parseFloat(lng) >= -180 && parseFloat(lng) <= 180;
+        
+        validationState.location = isValid;
+        
+        if (!isValid && (lat !== '' || lng !== '')) {
+            errorElement.textContent = 'Please enter valid coordinates';
+            errorElement.classList.add('show');
+        } else if (!isValid) {
+            errorElement.textContent = 'Please select a location on the map';
+            errorElement.classList.add('show');
+        } else {
+            errorElement.classList.remove('show');
+        }
+        
+        updateSaveButton();
+        return isValid;
+    }
+
+    function validateFuelTypes() {
+        const fuelTypes = document.getElementById('fuel-types').value.trim();
+        const errorElement = document.getElementById('fuel-error');
+        const isValid = fuelTypes.length >= 2 && fuelTypes.length <= 200;
+        
+        validationState.fuel = isValid;
+        
+        if (!isValid && fuelTypes.length > 0) {
+            errorElement.textContent = 'Fuel types must be between 2 and 200 characters';
+            errorElement.classList.add('show');
+            document.getElementById('fuel-types').classList.add('error');
+        } else if (!isValid) {
+            errorElement.textContent = 'Please enter at least one fuel type';
+            errorElement.classList.add('show');
+            document.getElementById('fuel-types').classList.add('error');
+        } else {
+            errorElement.classList.remove('show');
+            document.getElementById('fuel-types').classList.remove('error');
+        }
+        
+        updateSaveButton();
+        return isValid;
+    }
+
+    function validateServices() {
+        const services = document.getElementById('services-offered').value.trim();
+        const errorElement = document.getElementById('services-error');
+        const isValid = services.length >= 2 && services.length <= 200;
+        
+        validationState.services = isValid;
+        
+        if (!isValid && services.length > 0) {
+            errorElement.textContent = 'Services must be between 2 and 200 characters';
+            errorElement.classList.add('show');
+            document.getElementById('services-offered').classList.add('error');
+        } else if (!isValid) {
+            errorElement.textContent = 'Please enter at least one service';
+            errorElement.classList.add('show');
+            document.getElementById('services-offered').classList.add('error');
+        } else {
+            errorElement.classList.remove('show');
+            document.getElementById('services-offered').classList.remove('error');
+        }
+        
+        updateSaveButton();
+        return isValid;
+    }
+
+    function validateContact() {
+        const contact = document.getElementById('location-contact').value.trim();
+        const errorElement = document.getElementById('contact-error');
+        
+        if (contact === '') return true; // Contact is optional
+        
+        // Basic phone validation (allows various formats)
+        const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+        const isValid = phoneRegex.test(contact.replace(/[\s\-\(\)]/g, ''));
+        
+        if (!isValid) {
+            errorElement.textContent = 'Please enter a valid phone number';
+            errorElement.classList.add('show');
+            document.getElementById('location-contact').classList.add('error');
+        } else {
+            errorElement.classList.remove('show');
+            document.getElementById('location-contact').classList.remove('error');
+        }
+        
+        return isValid;
+    }
+
+    function validateHours() {
+        const hours = document.getElementById('location-hours').value.trim();
+        const errorElement = document.getElementById('hours-error');
+        
+        if (hours === '') return true; // Hours are optional
+        
+        const isValid = hours.length <= 50;
+        
+        if (!isValid) {
+            errorElement.textContent = 'Operating hours must be less than 50 characters';
+            errorElement.classList.add('show');
+            document.getElementById('location-hours').classList.add('error');
+        } else {
+            errorElement.classList.remove('show');
+            document.getElementById('location-hours').classList.remove('error');
+        }
+        
+        return isValid;
+    }
+
+    function updateSaveButton() {
+        const type = document.getElementById('location-type').value;
+        let isValid = validationState.name && validationState.address && validationState.location;
+        
+        if (type === 'station') {
+            isValid = isValid && validationState.fuel;
+        } else if (type === 'shop') {
+            isValid = isValid && validationState.services;
+        }
+        
+        saveLocationBtn.disabled = !isValid;
+    }
+
+    // Set up validation event listeners
+    function setupValidation() {
+        // Real-time validation
+        document.getElementById('location-name').addEventListener('input', validateName);
+        document.getElementById('location-address').addEventListener('input', validateAddress);
+        document.getElementById('location-contact').addEventListener('input', validateContact);
+        document.getElementById('location-hours').addEventListener('input', validateHours);
+        document.getElementById('fuel-types').addEventListener('input', validateFuelTypes);
+        document.getElementById('services-offered').addEventListener('input', validateServices);
+        
+        // Also validate when coordinates change
+        document.getElementById('location-lat').addEventListener('change', validateLocation);
+        document.getElementById('location-lng').addEventListener('change', validateLocation);
+    }
 
     // Mobile menu functionality
     function checkMobileView() {
@@ -1579,8 +2059,6 @@
                 loadStations();
             } else if (tabId === 'repair-shops') {
                 loadShops();
-            } else if (tabId === 'archive') {
-                loadArchivedLocations();
             }
         });
     });
@@ -1696,18 +2174,18 @@
         
         try {
             const token = localStorage.getItem('adminToken');
-            const response = await fetch(`${API_BASE}/api/admin/locations?type=station`, {
+            const response = await fetch(`${API_BASE}/api/admin/locations`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch stations');
+                throw new Error('Failed to fetch locations');
             }
 
             const data = await response.json();
-            const stations = data.locations || [];
+            const stations = (data.locations || []).filter(loc => loc.type === 'gasoline');
             
             list.innerHTML = '';
             if (!stations.length) {
@@ -1730,8 +2208,8 @@
                             <button class="btn btn-edit" onclick="editLocation('station', ${station.id})">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
-                            <button class="btn btn-archive" onclick="archiveLocation('station', ${station.id})">
-                                <i class="fas fa-archive"></i> Archive
+                            <button class="btn btn-delete" onclick="deleteLocation('station', ${station.id})">
+                                <i class="fas fa-trash"></i> Delete
                             </button>
                         </div>
                     </div>
@@ -1752,18 +2230,18 @@
         
         try {
             const token = localStorage.getItem('adminToken');
-            const response = await fetch(`${API_BASE}/api/admin/locations?type=shop`, {
+            const response = await fetch(`${API_BASE}/api/admin/locations`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
 
             if (!response.ok) {
-                throw new Error('Failed to fetch shops');
+                throw new Error('Failed to fetch locations');
             }
 
             const data = await response.json();
-            const shops = data.locations || [];
+            const shops = (data.locations || []).filter(loc => loc.type === 'repair');
             
             list.innerHTML = '';
             if (!shops.length) {
@@ -1786,8 +2264,8 @@
                             <button class="btn btn-edit" onclick="editLocation('shop', ${shop.id})">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
-                            <button class="btn btn-archive" onclick="archiveLocation('shop', ${shop.id})">
-                                <i class="fas fa-archive"></i> Archive
+                            <button class="btn btn-delete" onclick="deleteLocation('shop', ${shop.id})">
+                                <i class="fas fa-trash"></i> Delete
                             </button>
                         </div>
                     </div>
@@ -1798,105 +2276,6 @@
             console.error('Error loading shops:', error);
             list.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 20px;">Failed to load shops</p>';
             showToast('Failed to load shops', 'error');
-        }
-    }
-
-    // FIXED: Load archived locations
-    async function loadArchivedLocations() {
-        // Show loading states
-        document.getElementById('archived-stations-list').innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived stations...</p>';
-        document.getElementById('archived-shops-list').innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">Loading archived shops...</p>';
-
-        try {
-            const token = localStorage.getItem('adminToken');
-            
-            // Fetch archived stations
-            const stationsResponse = await fetch(`${API_BASE}/api/admin/locations/archived?type=gasoline`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            // Fetch archived shops
-            const shopsResponse = await fetch(`${API_BASE}/api/admin/locations/archived?type=repair`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            let archivedStations = [];
-            let archivedShops = [];
-
-            if (stationsResponse.ok) {
-                const data = await stationsResponse.json();
-                archivedStations = data.locations || data.archivedStations || [];
-            }
-
-            if (shopsResponse.ok) {
-                const data = await shopsResponse.json();
-                archivedShops = data.locations || data.archivedShops || [];
-            }
-
-            // Load archived stations
-            const archivedStationsList = document.getElementById('archived-stations-list');
-            archivedStationsList.innerHTML = '';
-
-            if (!archivedStations.length) {
-                archivedStationsList.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No archived stations found.</p>';
-            } else {
-                archivedStations.forEach(station => {
-                    const item = document.createElement('div');
-                    item.className = 'activity-item';
-                    item.innerHTML = `
-                        <div class="activity-icon" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
-                            <i class="fas fa-gas-pump"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>${station.name}</h4>
-                            <p>${station.address}</p>
-                            <p><small>Archived: ${new Date(station.archived_at || Date.now()).toLocaleDateString()}</small></p>
-                            <div class="action-buttons">
-                                <button class="btn btn-unarchive" onclick="unarchiveLocation('station', ${station.id})">
-                                    <i class="fas fa-box-open"></i> Unarchive
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    archivedStationsList.appendChild(item);
-                });
-            }
-
-            // Load archived shops
-            const archivedShopsList = document.getElementById('archived-shops-list');
-            archivedShopsList.innerHTML = '';
-
-            if (!archivedShops.length) {
-                archivedShopsList.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No archived shops found.</p>';
-            } else {
-                archivedShops.forEach(shop => {
-                    const item = document.createElement('div');
-                    item.className = 'activity-item';
-                    item.innerHTML = `
-                        <div class="activity-icon" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white;">
-                            <i class="fas fa-tools"></i>
-                        </div>
-                        <div class="activity-content">
-                            <h4>${shop.name}</h4>
-                            <p>${shop.address}</p>
-                            <p><small>Archived: ${new Date(shop.archived_at || Date.now()).toLocaleDateString()}</small></p>
-                            <div class="action-buttons">
-                                <button class="btn btn-unarchive" onclick="unarchiveLocation('shop', ${shop.id})">
-                                    <i class="fas fa-box-open"></i> Unarchive
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    archivedShopsList.appendChild(item);
-                });
-            }
-        } catch (error) {
-            console.error('Error loading archived locations:', error);
-            showToast('Failed to load archived locations', 'error');
         }
     }
 
@@ -1999,7 +2378,6 @@
             // Populate form with real data
             document.getElementById('location-name').value = location.name || '';
             document.getElementById('location-address').value = location.address || '';
-            document.getElementById('location-coordinates').value = `${location.lat || ''}, ${location.lng || ''}`;
             document.getElementById('location-contact').value = location.contact || '';
             document.getElementById('location-hours').value = location.operating_hours || '';
             
@@ -2009,6 +2387,31 @@
             } else {
                 document.getElementById('services-offered').value = location.services_offered || '';
             }
+            
+            // Initialize map and place marker for existing location
+            setTimeout(() => {
+                initMap();
+                if (location.lat && location.lng) {
+                    const latlng = L.latLng(parseFloat(location.lat), parseFloat(location.lng));
+                    placeMarker(latlng);
+                    updateCoordinates(latlng.lat, latlng.lng);
+                }
+            }, 100);
+            
+            // Run validation on existing data
+            setTimeout(() => {
+                validateName();
+                validateAddress();
+                validateLocation();
+                validateContact();
+                validateHours();
+                if (type === 'station') {
+                    validateFuelTypes();
+                } else {
+                    validateServices();
+                }
+            }, 200);
+            
         } catch (error) {
             console.error('Error fetching location:', error);
             showToast('Failed to load location data', 'error');
@@ -2017,97 +2420,58 @@
         editModal.style.display = 'flex';
     }
 
-    // Archive location function
-    function archiveLocation(type, id) {
-        currentArchiveContext = { type, id };
-        archiveConfirmation.style.display = 'flex';
-    }
-
-    // Unarchive location function
-    function unarchiveLocation(type, id) {
-        currentArchiveContext = { type, id };
-        unarchiveConfirmation.style.display = 'flex';
+    // Delete location function
+    function deleteLocation(type, id) {
+        currentDeleteContext = { type, id };
+        deleteConfirmation.style.display = 'flex';
     }
 
     // Modal and dialog event listeners
     closeModal.addEventListener('click', function() {
         editModal.style.display = 'none';
+        clearMarker();
     });
 
     cancelEdit.addEventListener('click', function() {
         editModal.style.display = 'none';
+        clearMarker();
     });
 
-    cancelArchive.addEventListener('click', function() {
-        archiveConfirmation.style.display = 'none';
+    cancelDelete.addEventListener('click', function() {
+        deleteConfirmation.style.display = 'none';
     });
 
-    confirmArchive.addEventListener('click', async function() {
-        const { type, id } = currentArchiveContext;
+    confirmDelete.addEventListener('click', async function() {
+        const { type, id } = currentDeleteContext;
         
         try {
             const token = localStorage.getItem('adminToken');
-            const response = await fetch(`${API_BASE}/api/admin/locations/${id}/archive`, {
-                method: 'POST',
+            const response = await fetch(`${API_BASE}/api/admin/locations/${id}`, {
+                method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
 
             if (!response.ok) {
-                throw new Error('Failed to archive location');
+                throw new Error('Failed to delete location');
             }
 
-            // Reload the current tab after successful archiving
+            // Reload the current tab after successful deletion
             const currentTab = document.querySelector('.menu-item.active').getAttribute('data-tab');
             if (currentTab === 'gas-stations') {
                 loadStations();
             } else if (currentTab === 'repair-shops') {
                 loadShops();
             }
-            // Refresh archived list so it reflects real DB state
-            loadArchivedLocations();
             // Also reload the dashboard data
             loadDashboardData();
-            showToast('Location archived successfully', 'success');
+            showToast('Location deleted successfully', 'success');
         } catch (error) {
-            console.error('Error archiving location:', error);
-            showToast('Failed to archive location', 'error');
+            console.error('Error deleting location:', error);
+            showToast('Failed to delete location', 'error');
         } finally {
-            archiveConfirmation.style.display = 'none';
-        }
-    });
-
-    cancelUnarchive.addEventListener('click', function() {
-        unarchiveConfirmation.style.display = 'none';
-    });
-
-    confirmUnarchive.addEventListener('click', async function() {
-        const { type, id } = currentArchiveContext;
-        
-        try {
-            const token = localStorage.getItem('adminToken');
-            const response = await fetch(`${API_BASE}/api/admin/locations/${id}/unarchive`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to unarchive location');
-            }
-
-            // Reload the archived locations after successful unarchiving
-            loadArchivedLocations();
-            // Also reload the dashboard data
-            loadDashboardData();
-            showToast('Location unarchived successfully', 'success');
-        } catch (error) {
-            console.error('Error unarchiving location:', error);
-            showToast('Failed to unarchive location', 'error');
-        } finally {
-            unarchiveConfirmation.style.display = 'none';
+            deleteConfirmation.style.display = 'none';
         }
     });
 
@@ -2115,24 +2479,47 @@
     locationForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
+        // Validate all fields before submission
+        if (!validateName() || !validateAddress() || !validateLocation() || 
+            !validateContact() || !validateHours()) {
+            showToast('Please fix the validation errors', 'error');
+            return;
+        }
+        
         const type = document.getElementById('location-type').value;
         const id = document.getElementById('location-id').value;
-        const name = document.getElementById('location-name').value;
-        const address = document.getElementById('location-address').value;
-        const coordinates = document.getElementById('location-coordinates').value.split(',').map(coord => coord.trim());
-        const lat = parseFloat(coordinates[0]);
-        const lng = parseFloat(coordinates[1]);
-        const contact = document.getElementById('location-contact').value;
-        const operating_hours = document.getElementById('location-hours').value;
-        const fuel_types = document.getElementById('fuel-types').value;
-        const services_offered = document.getElementById('services-offered').value;
+        
+        if (type === 'station' && !validateFuelTypes()) {
+            showToast('Please enter valid fuel types', 'error');
+            return;
+        }
+        
+        if (type === 'shop' && !validateServices()) {
+            showToast('Please enter valid services', 'error');
+            return;
+        }
+        
+        const name = document.getElementById('location-name').value.trim();
+        const address = document.getElementById('location-address').value.trim();
+        const lat = parseFloat(document.getElementById('location-lat').value);
+        const lng = parseFloat(document.getElementById('location-lng').value);
+        const contact = document.getElementById('location-contact').value.trim();
+        const operating_hours = document.getElementById('location-hours').value.trim();
+        const fuel_types = document.getElementById('fuel-types').value.trim();
+        const services_offered = document.getElementById('services-offered').value.trim();
 
-        if (!name || !address || !coordinates || coordinates.length !== 2 || isNaN(lat) || isNaN(lng)) {
-            showToast('Please fill all required fields with valid data', 'error');
+        // Final validation
+        if (isNaN(lat) || isNaN(lng)) {
+            showToast('Invalid coordinates selected', 'error');
             return;
         }
 
         try {
+            // Disable save button during submission
+            const saveBtn = document.getElementById('save-location');
+            saveBtn.innerHTML = 'Saving... <div class="loader"></div>';
+            saveBtn.disabled = true;
+
             // Create form data
             const formData = new FormData();
             formData.append('name', name);
@@ -2183,8 +2570,6 @@
                 loadStations();
             } else if (currentTab === 'repair-shops') {
                 loadShops();
-            } else if (currentTab === 'archive') {
-                loadArchivedLocations();
             }
 
             // Also reload the dashboard data
@@ -2192,9 +2577,16 @@
             showToast(id ? 'Location updated successfully' : 'Location added successfully', 'success');
             
             editModal.style.display = 'none';
+            clearMarker();
+            
         } catch (error) {
             console.error('Error saving location:', error);
             showToast(error.message || 'Failed to save location', 'error');
+        } finally {
+            // Re-enable save button
+            const saveBtn = document.getElementById('save-location');
+            saveBtn.innerHTML = 'Save Changes';
+            saveBtn.disabled = false;
         }
     });
 
@@ -2208,6 +2600,21 @@
         
         // Clear form
         locationForm.reset();
+        clearMarker();
+        
+        // Reset validation state
+        Object.keys(validationState).forEach(key => {
+            validationState[key] = false;
+        });
+        
+        // Disable save button initially
+        saveLocationBtn.disabled = true;
+        
+        // Initialize map
+        setTimeout(() => {
+            initMap();
+            setupValidation();
+        }, 100);
         
         editModal.style.display = 'flex';
     });
@@ -2222,6 +2629,21 @@
         
         // Clear form
         locationForm.reset();
+        clearMarker();
+        
+        // Reset validation state
+        Object.keys(validationState).forEach(key => {
+            validationState[key] = false;
+        });
+        
+        // Disable save button initially
+        saveLocationBtn.disabled = true;
+        
+        // Initialize map
+        setTimeout(() => {
+            initMap();
+            setupValidation();
+        }, 100);
         
         editModal.style.display = 'flex';
     });
@@ -2241,12 +2663,10 @@
     window.addEventListener('click', function(e) {
         if (e.target === editModal) {
             editModal.style.display = 'none';
+            clearMarker();
         }
-        if (e.target === archiveConfirmation) {
-            archiveConfirmation.style.display = 'none';
-        }
-        if (e.target === unarchiveConfirmation) {
-            unarchiveConfirmation.style.display = 'none';
+        if (e.target === deleteConfirmation) {
+            deleteConfirmation.style.display = 'none';
         }
     });
 
@@ -2260,9 +2680,23 @@
         `;
         document.body.appendChild(toast);
         
+        // Auto remove after 4 seconds
         setTimeout(() => {
-            toast.remove();
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
         }, 4000);
+        
+        // Allow manual dismissal
+        toast.addEventListener('click', function() {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        });
     }
 
     // Initialize the app
@@ -2279,6 +2713,10 @@
         document.getElementById('password').value = '';
         errorMessage.style.display = 'none';
     });
-</script>
+
+    // Make functions available globally for onclick attributes
+    window.editLocation = editLocation;
+    window.deleteLocation = deleteLocation;
+    </script>
 </body>
 </html>
