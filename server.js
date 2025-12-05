@@ -68,15 +68,9 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
 }
 
 // Database connection pool and config (Postgres)
-let pool; //FIXED: Use DATABASE_URL for Render and increase connection timeout
-const DB_CONFIG = process.env.DATABASE_URL ? {
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    },
-    connectionTimeoutMillis: 30000, // Increased timeout for cloud environments
-} : {
-    host: process.env.DB_HOST || 'localhost', // Fallback for local development
+let pool;
+const DB_CONFIG = {
+    host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || '',
@@ -84,7 +78,8 @@ const DB_CONFIG = process.env.DATABASE_URL ? {
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 20000,
-    ssl: process.env.DB_SSL === 'false' ? false : undefined
+    // Relax SSL by default for cloud providers (override by setting DB_SSL=false)
+    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
 };
 
 function replacePlaceholders(sql) {
