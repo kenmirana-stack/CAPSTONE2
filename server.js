@@ -533,11 +533,18 @@ async function updateLocationSchemaPostgres() {
 
 async function initializeDatabase() {
     try {
+        console.log('🔄 Initializing database connection...');
+        console.log('Using DATABASE_URL:', process.env.DATABASE_URL ? '✓ Yes' : '✗ No (using individual DB_* vars)');
+        
         pool = new Pool(DB_CONFIG);
 
-        // Simple connectivity check
-        const res = await pool.query('SELECT NOW()');
-        console.log('✓ Connected to Postgres database:', DB_CONFIG.database, 'Server time:', res.rows[0].now);
+        // Simple connectivity check with timeout
+        const res = await Promise.race([
+            pool.query('SELECT NOW()'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timeout after 15s')), 15000))
+        ]);
+        
+        console.log('✓ Connected to Postgres database - Server time:', res.rows[0].now);
 
         // Check and create all required tables
         await checkAllTables();
@@ -552,8 +559,22 @@ async function initializeDatabase() {
         await addSampleData();
         
     } catch (error) {
-        console.error('Database initialization failed:', error);
-        process.exit(1);
+        console.error('❌ Database initialization failed:', error.message);
+        console.error('\n🔧 Troubleshooting:');
+        
+        if (process.env.DATABASE_URL) {
+            console.error('1. Check DATABASE_URL is valid: ' + (process.env.DATABASE_URL.substring(0, 30) + '...'));
+        } else {
+            console.error('1. DB_HOST:', process.env.DB_HOST);
+            console.error('2. DB_PORT:', process.env.DB_PORT);
+            console.error('3. DB_NAME:', process.env.DB_NAME);
+        }
+        
+        console.error('\n2. Verify Postgres is running and accessible');
+        console.error('3. Check network/firewall settings');
+        console.error('\nWill retry on next request...\n');
+        
+        // Don't exit - allow server to start and retry on first request
     }
 }
 
@@ -609,8 +630,36 @@ function authenticateAdmin(req, res, next) {
 }
 
 // FIXED: Health check endpoint
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', message: 'Server is running' });
+app.get('/api/health', async (req, res) => {
+    try {
+        // Try to verify database connection
+        if (!pool) {
+            return res.status(503).json({ 
+                status: 'DEGRADED',
+                message: 'Database pool not initialized',
+                database: 'NOT CONNECTED'
+            });
+        }
+        
+        const result = await Promise.race([
+            pool.query('SELECT NOW()'),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+        
+        res.json({ 
+            status: 'OK', 
+            message: 'Server is running',
+            database: 'CONNECTED',
+            timestamp: result.rows[0].now
+        });
+    } catch (error) {
+        res.status(503).json({ 
+            status: 'DEGRADED', 
+            message: 'Database connection failed',
+            database: 'ERROR: ' + error.message,
+            error: error.message
+        });
+    }
 });
 
 // User registration
@@ -1442,23 +1491,21 @@ app.use((req, res) => {
 });
 
 // Start server
-initializeDatabase().then(() => {
+initializeDatabase().catch(err => {
+    console.warn('⚠️ Database initialization encountered issues - server starting anyway:', err.message);
+}).finally(() => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log('='.repeat(50));
         console.log(`✓ Server running on http://localhost:${PORT}`);
         console.log(`✓ Admin Panel: http://localhost:${PORT}/admin.html`);
         console.log(`✓ Main App: http://localhost:${PORT}/index.html`);
+        console.log(`✓ Health Check: http://localhost:${PORT}/api/health`);
         console.log('='.repeat(50));
         console.log('Admin Credentials:');
         console.log('  Username: admin');
         console.log('  Password: admin123');
         console.log('='.repeat(50));
-        console.log('Sample data has been added for testing');
-        console.log('='.repeat(50));
     });
-}).catch(err => {
-    console.error('Failed to start server:', err);
-    process.exit(1);
 });
 
 // Global handlers for unexpected errors
