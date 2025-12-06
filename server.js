@@ -74,7 +74,10 @@ const DB_CONFIG = process.env.DATABASE_URL ? {
     ssl: {
         rejectUnauthorized: false
     },
-    connectionTimeoutMillis: 30000, // Increased timeout for cloud environments
+    connectionTimeoutMillis: 60000, // 60 second timeout for cloud environments
+    idleTimeoutMillis: 30000,
+    max: 10,
+    statement_timeout: 60000
 } : {
     host: process.env.DB_HOST || 'localhost', // Fallback for local development
     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
@@ -83,8 +86,9 @@ const DB_CONFIG = process.env.DATABASE_URL ? {
     database: process.env.DB_NAME || 'bulan_locator',
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 20000,
-    ssl: process.env.DB_SSL === 'false' ? false : undefined
+    connectionTimeoutMillis: 60000,
+    statement_timeout: 60000,
+    ssl: process.env.DB_SSL === 'false' ? false : (process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined)
 };
 
 function replacePlaceholders(sql) {
