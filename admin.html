@@ -212,7 +212,7 @@
             box-shadow: 4px 0 20px rgba(0,0,0,0.1);
             transition: transform 0.3s ease;
             z-index: 1000;
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            -webkit-overflow-scrolling: touch;
         }
         
         .sidebar.active {
@@ -901,6 +901,53 @@
             padding: 25px;
         }
         
+        /* Confirmation Dialog */
+        .confirmation-dialog {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .dialog-content {
+            background-color: white;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            padding: 25px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+            animation: modalSlideUp 0.3s ease;
+        }
+        
+        .dialog-title {
+            font-size: 1.3rem;
+            color: #dc3545;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .dialog-message {
+            margin-bottom: 20px;
+            color: #333;
+            line-height: 1.5;
+        }
+        
+        .dialog-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
         /* Toast Notifications */
         .toast {
             position: fixed;
@@ -969,7 +1016,7 @@
         @media (max-width: 1024px) {
             .sidebar {
                 transform: translateX(-100%);
-                width: 280px; /* Slightly wider for better mobile experience */
+                width: 280px;
             }
             
             .sidebar.active {
@@ -1110,7 +1157,7 @@
             }
             
             .sidebar {
-                width: 85%; /* Take up most of the screen on very small devices */
+                width: 85%;
             }
         }
     </style>
@@ -1139,8 +1186,7 @@
                     <i class="fas fa-sign-in-alt"></i> Login to Dashboard
                 </button>
                 
-                <div class="error-message" id="error-message">
-                    Invalid credentials. Please try again.
+                <div class="error-message" id="error-message" style="display: none;">
                 </div>
             </form>
             
@@ -1346,32 +1392,31 @@
                     <div class="form-section-title">Basic Information</div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label required" for="location-name"><i class="fas fa-building"></i> Name</label>
-                            <input type="text" class="form-input" id="location-name" placeholder="Enter location name" required>
-                            <div class="validation-error" id="name-error">Please enter a valid name</div>
+                            <label class="form-label" for="location-name"><i class="fas fa-building"></i> Name</label>
+                            <input type="text" class="form-input" id="location-name" placeholder="Enter location name">
+                            <div class="validation-error" id="name-error">Name is recommended</div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="location-contact"><i class="fas fa-phone"></i> Contact</label>
                             <input type="text" class="form-input" id="location-contact" placeholder="Enter contact number">
-                            <div class="validation-error" id="contact-error">Please enter a valid contact number</div>
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label required" for="location-address"><i class="fas fa-map-marker-alt"></i> Address</label>
+                        <label class="form-label" for="location-address"><i class="fas fa-map-marker-alt"></i> Address</label>
                         <div class="search-container">
-                            <input type="text" class="form-input" id="location-address" placeholder="Enter location address or search..." required>
+                            <input type="text" class="form-input" id="location-address" placeholder="Enter location address or search...">
                             <button type="button" class="search-button" id="search-address-btn">
                                 <i class="fas fa-search"></i>
                             </button>
                             <div class="address-suggestions" id="address-suggestions"></div>
                         </div>
-                        <div class="validation-error" id="address-error">Please enter a valid address</div>
+                        <div class="validation-error" id="address-error">Address is recommended</div>
                     </div>
                     
                     <!-- Map Container -->
                     <div class="form-group">
-                        <label class="form-label required"><i class="fas fa-map-marked-alt"></i> Select Location on Map</label>
+                        <label class="form-label"><i class="fas fa-map-marked-alt"></i> Select Location on Map</label>
                         <div class="map-container" id="map-container">
                             <!-- Map will be loaded here -->
                         </div>
@@ -1383,17 +1428,17 @@
                                 <i class="fas fa-times"></i> Clear Marker
                             </button>
                         </div>
-                        <div class="validation-error" id="map-error">Please select a location on the map</div>
+                        <div class="validation-error" id="map-error">Please select a location on the map or enter coordinates</div>
                     </div>
                     
                     <div class="coordinates-display">
                         <div class="form-group" style="flex: 1;">
                             <label class="form-label"><i class="fas fa-latitude"></i> Latitude</label>
-                            <input type="text" class="form-input" id="location-lat" placeholder="Click on map" readonly>
+                            <input type="text" class="form-input" id="location-lat" placeholder="Click on map or enter manually">
                         </div>
                         <div class="form-group" style="flex: 1;">
                             <label class="form-label"><i class="fas fa-longitude"></i> Longitude</label>
-                            <input type="text" class="form-input" id="location-lng" placeholder="Click on map" readonly>
+                            <input type="text" class="form-input" id="location-lng" placeholder="Click on map or enter manually">
                         </div>
                     </div>
                     
@@ -1401,7 +1446,6 @@
                         <div class="form-group">
                             <label class="form-label" for="location-hours"><i class="fas fa-clock"></i> Operating Hours</label>
                             <input type="text" class="form-input" id="location-hours" placeholder="e.g., 8:00 AM - 8:00 PM">
-                            <div class="validation-error" id="hours-error">Please enter valid operating hours</div>
                         </div>
                     </div>
                 </div>
@@ -1410,9 +1454,9 @@
                 <div class="form-section" id="gas-station-fields">
                     <div class="form-section-title">Gas Station Information</div>
                     <div class="form-group">
-                        <label class="form-label required" for="fuel-types"><i class="fas fa-gas-pump"></i> Fuel Types</label>
-                        <input type="text" class="form-input" id="fuel-types" placeholder="e.g., Diesel, Premium, Unleaded" required>
-                        <div class="validation-error" id="fuel-error">Please enter at least one fuel type</div>
+                        <label class="form-label" for="fuel-types"><i class="fas fa-gas-pump"></i> Fuel Types</label>
+                        <input type="text" class="form-input" id="fuel-types" placeholder="e.g., Diesel, Premium, Unleaded">
+                        <div class="validation-error" id="fuel-error">Fuel types are recommended</div>
                     </div>
                 </div>
 
@@ -1420,15 +1464,15 @@
                 <div class="form-section" id="repair-shop-fields">
                     <div class="form-section-title">Repair Shop Information</div>
                     <div class="form-group">
-                        <label class="form-label required" for="services-offered"><i class="fas fa-tools"></i> Services Offered</label>
-                        <input type="text" class="form-input" id="services-offered" placeholder="e.g., Oil Change, Brake Repair, Tire Service" required>
-                        <div class="validation-error" id="services-error">Please enter at least one service</div>
+                        <label class="form-label" for="services-offered"><i class="fas fa-tools"></i> Services Offered</label>
+                        <input type="text" class="form-input" id="services-offered" placeholder="e.g., Oil Change, Brake Repair, Tire Service">
+                        <div class="validation-error" id="services-error">Services are recommended</div>
                     </div>
                 </div>
                 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-cancel" id="cancel-edit">Cancel</button>
-                    <button type="submit" class="btn btn-save" id="save-location" disabled>Save Changes</button>
+                    <button type="submit" class="btn btn-save" id="save-location">Save Changes</button>
                 </div>
             </form>
         </div>
@@ -1454,7 +1498,9 @@
     
     <script>
     // API Configuration
-    const API_BASE = 'https://capstone2-b2jk.onrender.com';
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'http://localhost:3001' 
+        : 'https://capstone2-b2jk.onrender.com';
     
     // DOM Elements
     const loginPage = document.getElementById('login-page');
@@ -1483,19 +1529,10 @@
     let marker = null;
     let currentLocationSelected = false;
     
-    // Validation state
-    const validationState = {
-        name: false,
-        address: false,
-        location: false,
-        fuel: false,
-        services: false
-    };
-
     // Current delete context
     let currentDeleteContext = { type: null, id: null };
 
-    // Initialize Leaflet map
+    // Initialize Leaflet map with manual coordinate input support
     function initMap() {
         if (!document.getElementById('map-container')) return;
         
@@ -1519,7 +1556,6 @@
             placeMarker(e.latlng);
             updateCoordinates(e.latlng.lat, e.latlng.lng);
             reverseGeocode(e.latlng.lat, e.latlng.lng);
-            validateLocation();
         });
         
         // Add event listeners for map controls
@@ -1535,12 +1571,64 @@
             }
         });
         
+        // Setup manual coordinate input
+        setupManualCoordinateInput();
+        
         // Initialize address suggestions
         initAddressSuggestions();
     }
 
+    // Setup manual coordinate input functionality
+    function setupManualCoordinateInput() {
+        const latInput = document.getElementById('location-lat');
+        const lngInput = document.getElementById('location-lng');
+        
+        // Make inputs editable
+        latInput.readOnly = false;
+        lngInput.readOnly = false;
+        
+        // Add input validation and update marker on change
+        latInput.addEventListener('change', function() {
+            const lat = parseFloat(this.value);
+            const lng = parseFloat(lngInput.value);
+            
+            if (!isNaN(lat) && !isNaN(lng)) {
+                if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                    const latlng = L.latLng(lat, lng);
+                    placeMarker(latlng);
+                    updateCoordinates(lat, lng);
+                    reverseGeocode(lat, lng);
+                } else {
+                    showToast('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.', 'error');
+                }
+            }
+        });
+        
+        lngInput.addEventListener('change', function() {
+            const lng = parseFloat(this.value);
+            const lat = parseFloat(latInput.value);
+            
+            if (!isNaN(lat) && !isNaN(lng)) {
+                if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                    const latlng = L.latLng(lat, lng);
+                    placeMarker(latlng);
+                    updateCoordinates(lat, lng);
+                    reverseGeocode(lat, lng);
+                } else {
+                    showToast('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.', 'error');
+                }
+            }
+        });
+    }
+
     // Place marker on map
     function placeMarker(latlng) {
+        // Validate coordinates
+        if (latlng.lat < -90 || latlng.lat > 90 || latlng.lng < -180 || latlng.lng > 180) {
+            showToast('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.', 'error');
+            return false;
+        }
+        
         if (marker) {
             marker.setLatLng(latlng);
         } else {
@@ -1560,6 +1648,11 @@
         // Center map on marker
         map.setView(latlng, 15);
         currentLocationSelected = true;
+        
+        // Clear map error if any
+        document.getElementById('map-error').classList.remove('show');
+        
+        return true;
     }
 
     // Clear marker from map
@@ -1571,7 +1664,6 @@
         document.getElementById('location-lat').value = '';
         document.getElementById('location-lng').value = '';
         currentLocationSelected = false;
-        validateLocation();
     }
 
     // Update coordinate display
@@ -1648,7 +1740,6 @@
             document.getElementById('location-address').value = result.display_name;
             
             showToast('Address found!', 'success');
-            validateAddress();
             
         } catch (error) {
             console.error('Address search error:', error);
@@ -1675,11 +1766,9 @@
             
             if (result.display_name) {
                 document.getElementById('location-address').value = result.display_name;
-                validateAddress();
             }
         } catch (error) {
             console.error('Reverse geocode error:', error);
-            // Don't show error toast as this is a background process
         }
     }
 
@@ -1734,7 +1823,6 @@
                             updateCoordinates(latlng.lat, latlng.lng);
                             addressInput.value = result.display_name;
                             suggestionsContainer.classList.remove('show');
-                            validateAddress();
                             showToast('Address selected!', 'success');
                         });
                         
@@ -1764,199 +1852,6 @@
         });
     }
 
-    // Validation functions
-    function validateName() {
-        const name = document.getElementById('location-name').value.trim();
-        const errorElement = document.getElementById('name-error');
-        const isValid = name.length >= 2 && name.length <= 100;
-        
-        validationState.name = isValid;
-        
-        if (!isValid && name.length > 0) {
-            errorElement.textContent = 'Name must be between 2 and 100 characters';
-            errorElement.classList.add('show');
-            document.getElementById('location-name').classList.add('error');
-        } else if (!isValid) {
-            errorElement.textContent = 'Please enter a location name';
-            errorElement.classList.add('show');
-            document.getElementById('location-name').classList.add('error');
-        } else {
-            errorElement.classList.remove('show');
-            document.getElementById('location-name').classList.remove('error');
-        }
-        
-        updateSaveButton();
-        return isValid;
-    }
-
-    function validateAddress() {
-        const address = document.getElementById('location-address').value.trim();
-        const errorElement = document.getElementById('address-error');
-        const isValid = address.length >= 5 && address.length <= 200;
-        
-        validationState.address = isValid;
-        
-        if (!isValid && address.length > 0) {
-            errorElement.textContent = 'Address must be between 5 and 200 characters';
-            errorElement.classList.add('show');
-            document.getElementById('location-address').classList.add('error');
-        } else if (!isValid) {
-            errorElement.textContent = 'Please enter a valid address';
-            errorElement.classList.add('show');
-            document.getElementById('location-address').classList.add('error');
-        } else {
-            errorElement.classList.remove('show');
-            document.getElementById('location-address').classList.remove('error');
-        }
-        
-        updateSaveButton();
-        return isValid;
-    }
-
-    function validateLocation() {
-        const lat = document.getElementById('location-lat').value.trim();
-        const lng = document.getElementById('location-lng').value.trim();
-        const errorElement = document.getElementById('map-error');
-        
-        const isValid = lat !== '' && lng !== '' && 
-                       !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng)) &&
-                       parseFloat(lat) >= -90 && parseFloat(lat) <= 90 &&
-                       parseFloat(lng) >= -180 && parseFloat(lng) <= 180;
-        
-        validationState.location = isValid;
-        
-        if (!isValid && (lat !== '' || lng !== '')) {
-            errorElement.textContent = 'Please enter valid coordinates';
-            errorElement.classList.add('show');
-        } else if (!isValid) {
-            errorElement.textContent = 'Please select a location on the map';
-            errorElement.classList.add('show');
-        } else {
-            errorElement.classList.remove('show');
-        }
-        
-        updateSaveButton();
-        return isValid;
-    }
-
-    function validateFuelTypes() {
-        const fuelTypes = document.getElementById('fuel-types').value.trim();
-        const errorElement = document.getElementById('fuel-error');
-        const isValid = fuelTypes.length >= 2 && fuelTypes.length <= 200;
-        
-        validationState.fuel = isValid;
-        
-        if (!isValid && fuelTypes.length > 0) {
-            errorElement.textContent = 'Fuel types must be between 2 and 200 characters';
-            errorElement.classList.add('show');
-            document.getElementById('fuel-types').classList.add('error');
-        } else if (!isValid) {
-            errorElement.textContent = 'Please enter at least one fuel type';
-            errorElement.classList.add('show');
-            document.getElementById('fuel-types').classList.add('error');
-        } else {
-            errorElement.classList.remove('show');
-            document.getElementById('fuel-types').classList.remove('error');
-        }
-        
-        updateSaveButton();
-        return isValid;
-    }
-
-    function validateServices() {
-        const services = document.getElementById('services-offered').value.trim();
-        const errorElement = document.getElementById('services-error');
-        const isValid = services.length >= 2 && services.length <= 200;
-        
-        validationState.services = isValid;
-        
-        if (!isValid && services.length > 0) {
-            errorElement.textContent = 'Services must be between 2 and 200 characters';
-            errorElement.classList.add('show');
-            document.getElementById('services-offered').classList.add('error');
-        } else if (!isValid) {
-            errorElement.textContent = 'Please enter at least one service';
-            errorElement.classList.add('show');
-            document.getElementById('services-offered').classList.add('error');
-        } else {
-            errorElement.classList.remove('show');
-            document.getElementById('services-offered').classList.remove('error');
-        }
-        
-        updateSaveButton();
-        return isValid;
-    }
-
-    function validateContact() {
-        const contact = document.getElementById('location-contact').value.trim();
-        const errorElement = document.getElementById('contact-error');
-        
-        if (contact === '') return true; // Contact is optional
-        
-        // Basic phone validation (allows various formats)
-        const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-        const isValid = phoneRegex.test(contact.replace(/[\s\-\(\)]/g, ''));
-        
-        if (!isValid) {
-            errorElement.textContent = 'Please enter a valid phone number';
-            errorElement.classList.add('show');
-            document.getElementById('location-contact').classList.add('error');
-        } else {
-            errorElement.classList.remove('show');
-            document.getElementById('location-contact').classList.remove('error');
-        }
-        
-        return isValid;
-    }
-
-    function validateHours() {
-        const hours = document.getElementById('location-hours').value.trim();
-        const errorElement = document.getElementById('hours-error');
-        
-        if (hours === '') return true; // Hours are optional
-        
-        const isValid = hours.length <= 50;
-        
-        if (!isValid) {
-            errorElement.textContent = 'Operating hours must be less than 50 characters';
-            errorElement.classList.add('show');
-            document.getElementById('location-hours').classList.add('error');
-        } else {
-            errorElement.classList.remove('show');
-            document.getElementById('location-hours').classList.remove('error');
-        }
-        
-        return isValid;
-    }
-
-    function updateSaveButton() {
-        const type = document.getElementById('location-type').value;
-        let isValid = validationState.name && validationState.address && validationState.location;
-        
-        if (type === 'station') {
-            isValid = isValid && validationState.fuel;
-        } else if (type === 'shop') {
-            isValid = isValid && validationState.services;
-        }
-        
-        saveLocationBtn.disabled = !isValid;
-    }
-
-    // Set up validation event listeners
-    function setupValidation() {
-        // Real-time validation
-        document.getElementById('location-name').addEventListener('input', validateName);
-        document.getElementById('location-address').addEventListener('input', validateAddress);
-        document.getElementById('location-contact').addEventListener('input', validateContact);
-        document.getElementById('location-hours').addEventListener('input', validateHours);
-        document.getElementById('fuel-types').addEventListener('input', validateFuelTypes);
-        document.getElementById('services-offered').addEventListener('input', validateServices);
-        
-        // Also validate when coordinates change
-        document.getElementById('location-lat').addEventListener('change', validateLocation);
-        document.getElementById('location-lng').addEventListener('change', validateLocation);
-    }
-
     // Mobile menu functionality
     function checkMobileView() {
         if (window.innerWidth <= 1024) {
@@ -1978,7 +1873,6 @@
         sidebarOverlay.classList.remove('active');
     });
 
-    // Close sidebar when clicking outside on mobile
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 1024 && 
             !sidebar.contains(e.target) && 
@@ -1988,7 +1882,6 @@
         }
     });
 
-    // Close sidebar when clicking a menu item on mobile
     menuItems.forEach(item => {
         item.addEventListener('click', () => {
             if (window.innerWidth <= 1024) {
@@ -1998,12 +1891,10 @@
         });
     });
 
-    // Prevent clicks inside sidebar from closing it
     sidebar.addEventListener('click', (e) => {
         e.stopPropagation();
     });
 
-    // Add touch events for better mobile experience
     let touchStartX = 0;
     let touchEndX = 0;
 
@@ -2023,13 +1914,11 @@
         if (Math.abs(swipeDistance) < swipeThreshold) return;
 
         if (swipeDistance > 0) {
-            // Swipe right - open sidebar
             if (window.innerWidth <= 1024 && !sidebar.classList.contains('active')) {
                 sidebar.classList.add('active');
                 sidebarOverlay.classList.add('active');
             }
         } else {
-            // Swipe left - close sidebar
             if (window.innerWidth <= 1024 && sidebar.classList.contains('active')) {
                 sidebar.classList.remove('active');
                 sidebarOverlay.classList.remove('active');
@@ -2038,23 +1927,20 @@
     }
 
     window.addEventListener('resize', checkMobileView);
-    checkMobileView(); // Initial check
+    checkMobileView();
 
     // Tab functionality
     menuItems.forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
             
-            // Update active menu item
             menuItems.forEach(i => i.classList.remove('active'));
             this.classList.add('active');
             
-            // Show corresponding tab
             const tabId = this.getAttribute('data-tab');
             tabContents.forEach(content => content.classList.remove('active'));
             document.getElementById(`${tabId}-tab`).classList.add('active');
             
-            // Load data for the selected tab if needed
             if (tabId === 'gas-stations') {
                 loadStations();
             } else if (tabId === 'repair-shops') {
@@ -2064,11 +1950,9 @@
     });
 
     // Login functionality
-    // Check token on page load
     window.addEventListener('load', function() {
         const token = localStorage.getItem('adminToken');
         if (token) {
-            // Verify token validity
             fetch(`${API_BASE}/api/admin/stats`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -2083,7 +1967,6 @@
                 loginPage.style.display = 'none';
                 loadDashboardData();
             }).catch(() => {
-                // Invalid or expired token
                 localStorage.removeItem('adminToken');
                 dashboardPage.style.display = 'none';
                 loginPage.style.display = 'block';
@@ -2158,7 +2041,6 @@
             document.getElementById('registered-users').innerText = data.registeredUsers;
             document.getElementById('total-visits').innerText = data.totalVisits;
             
-            // Load popular sections with real data
             loadMostVisitedStations(data.stations || []);
             loadMostViewedShops(data.repairShops || []);
         } catch (error) {
@@ -2288,7 +2170,6 @@
             return;
         }
         
-        // Sort by visits and take top 3
         const topStations = [...stations]
             .sort((a, b) => (b.visits || 0) - (a.visits || 0))
             .slice(0, 3);
@@ -2321,7 +2202,6 @@
             return;
         }
         
-        // Sort by views and take top 3
         const topShops = [...shops]
             .sort((a, b) => (b.views || 0) - (a.views || 0))
             .slice(0, 3);
@@ -2351,7 +2231,7 @@
         document.getElementById('location-type').value = type;
         document.getElementById('location-id').value = id;
 
-        // Show/hide specific fields based on type
+        // Show/hide appropriate fields
         if (type === 'station') {
             document.getElementById('gas-station-fields').style.display = 'block';
             document.getElementById('repair-shop-fields').style.display = 'none';
@@ -2384,37 +2264,46 @@
             // Set type-specific fields
             if (type === 'station') {
                 document.getElementById('fuel-types').value = location.fuel_types || '';
+                document.getElementById('services-offered').value = '';
             } else {
+                document.getElementById('fuel-types').value = '';
                 document.getElementById('services-offered').value = location.services_offered || '';
             }
             
-            // Initialize map and place marker for existing location
+            // Clear validation errors
+            document.querySelectorAll('.validation-error').forEach(el => {
+                el.classList.remove('show');
+            });
+            document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(el => {
+                el.classList.remove('error');
+            });
+            
+            // Clear existing map and marker
+            if (map) {
+                map.remove();
+                map = null;
+                marker = null;
+            }
+            
+            // Initialize map
             setTimeout(() => {
                 initMap();
                 if (location.lat && location.lng) {
                     const latlng = L.latLng(parseFloat(location.lat), parseFloat(location.lng));
                     placeMarker(latlng);
                     updateCoordinates(latlng.lat, latlng.lng);
+                    // Set map view to the location
+                    map.setView(latlng, 15);
                 }
             }, 100);
             
-            // Run validation on existing data
-            setTimeout(() => {
-                validateName();
-                validateAddress();
-                validateLocation();
-                validateContact();
-                validateHours();
-                if (type === 'station') {
-                    validateFuelTypes();
-                } else {
-                    validateServices();
-                }
-            }, 200);
+            // Update save button text
+            document.getElementById('save-location').innerHTML = 'Save Changes';
+            document.getElementById('save-location').disabled = false;
             
         } catch (error) {
-            console.error('Error fetching location:', error);
-            showToast('Failed to load location data', 'error');
+            console.error('❌ Error fetching location:', error);
+            showToast('Failed to load location data: ' + error.message, 'error');
         }
         
         editModal.style.display = 'flex';
@@ -2446,59 +2335,52 @@
         
         try {
             const token = localStorage.getItem('adminToken');
+            if (!token) {
+                throw new Error('No authorization token found');
+            }
+
+            console.log(`Deleting location ${id} with token...`);
+            
             const response = await fetch(`${API_BASE}/api/admin/locations/${id}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
             });
 
+            const data = await response.json();
+
             if (!response.ok) {
-                throw new Error('Failed to delete location');
+                throw new Error(data.error || 'Failed to delete location');
             }
 
-            // Reload the current tab after successful deletion
             const currentTab = document.querySelector('.menu-item.active').getAttribute('data-tab');
             if (currentTab === 'gas-stations') {
                 loadStations();
             } else if (currentTab === 'repair-shops') {
                 loadShops();
             }
-            // Also reload the dashboard data
             loadDashboardData();
             showToast('Location deleted successfully', 'success');
         } catch (error) {
-            console.error('Error deleting location:', error);
-            showToast('Failed to delete location', 'error');
+            console.error('❌ Error deleting location:', {
+                message: error.message,
+                stack: error.stack
+            });
+            showToast(error.message || 'Failed to delete location', 'error');
         } finally {
             deleteConfirmation.style.display = 'none';
         }
     });
 
-    // Form submission
+    // Form submission - SIMPLIFIED VERSION
     locationForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        // Validate all fields before submission
-        if (!validateName() || !validateAddress() || !validateLocation() || 
-            !validateContact() || !validateHours()) {
-            showToast('Please fix the validation errors', 'error');
-            return;
-        }
-        
+        // Get form values
         const type = document.getElementById('location-type').value;
         const id = document.getElementById('location-id').value;
-        
-        if (type === 'station' && !validateFuelTypes()) {
-            showToast('Please enter valid fuel types', 'error');
-            return;
-        }
-        
-        if (type === 'shop' && !validateServices()) {
-            showToast('Please enter valid services', 'error');
-            return;
-        }
-        
         const name = document.getElementById('location-name').value.trim();
         const address = document.getElementById('location-address').value.trim();
         const lat = parseFloat(document.getElementById('location-lat').value);
@@ -2508,35 +2390,40 @@
         const fuel_types = document.getElementById('fuel-types').value.trim();
         const services_offered = document.getElementById('services-offered').value.trim();
 
-        // Final validation
-        if (isNaN(lat) || isNaN(lng)) {
-            showToast('Invalid coordinates selected', 'error');
+        // Basic validation only (no strict checks)
+        if (!name || !address || isNaN(lat) || isNaN(lng)) {
+            showToast('Please fill in required fields: Name, Address, and valid coordinates', 'error');
             return;
         }
 
         try {
             // Disable save button during submission
             const saveBtn = document.getElementById('save-location');
+            const originalText = saveBtn.innerHTML;
             saveBtn.innerHTML = 'Saving... <div class="loader"></div>';
             saveBtn.disabled = true;
 
-            // Create form data
-            const formData = new FormData();
-            formData.append('name', name);
-            formData.append('address', address);
-            formData.append('lat', lat);
-            formData.append('lng', lng);
-            formData.append('type', type === 'station' ? 'gasoline' : 'repair');
-            formData.append('contact', contact);
-            formData.append('operating_hours', operating_hours);
+            // Prepare request data with minimal validation
+            const requestData = {
+                name: name,
+                address: address,
+                lat: lat,
+                lng: lng,
+                type: type, // 'station' or 'shop'
+                contact: contact || null,
+                operating_hours: operating_hours || null
+            };
 
+            // Add type-specific fields
             if (type === 'station') {
-                formData.append('fuel_types', fuel_types);
-                formData.append('services_offered', '');
+                requestData.fuel_types = fuel_types || 'Not specified';
+                requestData.services_offered = '';
             } else {
-                formData.append('fuel_types', '');
-                formData.append('services_offered', services_offered);
+                requestData.fuel_types = '';
+                requestData.services_offered = services_offered || 'Not specified';
             }
+
+            console.log('📝 Submitting location data:', requestData);
 
             const token = localStorage.getItem('adminToken');
             let endpoint, method;
@@ -2554,14 +2441,17 @@
             const response = await fetch(endpoint, {
                 method: method,
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 },
-                body: formData
+                body: JSON.stringify(requestData)
             });
 
+            const responseData = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to save location');
+                console.error('❌ API Error:', responseData);
+                throw new Error(responseData.error || 'Failed to save location');
             }
 
             // Reload the current tab after successful save
@@ -2574,23 +2464,23 @@
 
             // Also reload the dashboard data
             loadDashboardData();
-            showToast(id ? 'Location updated successfully' : 'Location added successfully', 'success');
+            showToast(responseData.message || (id ? 'Location updated successfully' : 'Location added successfully'), 'success');
             
             editModal.style.display = 'none';
             clearMarker();
             
         } catch (error) {
-            console.error('Error saving location:', error);
+            console.error('❌ Error saving location:', error);
             showToast(error.message || 'Failed to save location', 'error');
         } finally {
             // Re-enable save button
             const saveBtn = document.getElementById('save-location');
-            saveBtn.innerHTML = 'Save Changes';
+            saveBtn.innerHTML = id ? 'Save Changes' : 'Add Location';
             saveBtn.disabled = false;
         }
     });
 
-    // Add station button
+    // Add station button - SIMPLIFIED
     addStationBtn.addEventListener('click', function() {
         document.getElementById('modal-title').textContent = 'Add New Gas Station';
         document.getElementById('location-type').value = 'station';
@@ -2600,26 +2490,36 @@
         
         // Clear form
         locationForm.reset();
-        clearMarker();
         
-        // Reset validation state
-        Object.keys(validationState).forEach(key => {
-            validationState[key] = false;
+        // Clear validation errors
+        document.querySelectorAll('.validation-error').forEach(el => {
+            el.classList.remove('show');
+        });
+        document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(el => {
+            el.classList.remove('error');
         });
         
-        // Disable save button initially
-        saveLocationBtn.disabled = true;
+        // Enable save button immediately
+        saveLocationBtn.disabled = false;
+        saveLocationBtn.innerHTML = 'Add Station';
         
         // Initialize map
         setTimeout(() => {
+            if (map) {
+                map.remove();
+            }
             initMap();
-            setupValidation();
+            
+            // Set a default view (Philippines)
+            if (map) {
+                map.setView([14.5995, 120.9842], 13);
+            }
         }, 100);
         
         editModal.style.display = 'flex';
     });
 
-    // Add shop button
+    // Add shop button - SIMPLIFIED
     addShopBtn.addEventListener('click', function() {
         document.getElementById('modal-title').textContent = 'Add New Repair Shop';
         document.getElementById('location-type').value = 'shop';
@@ -2629,20 +2529,30 @@
         
         // Clear form
         locationForm.reset();
-        clearMarker();
         
-        // Reset validation state
-        Object.keys(validationState).forEach(key => {
-            validationState[key] = false;
+        // Clear validation errors
+        document.querySelectorAll('.validation-error').forEach(el => {
+            el.classList.remove('show');
+        });
+        document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(el => {
+            el.classList.remove('error');
         });
         
-        // Disable save button initially
-        saveLocationBtn.disabled = true;
+        // Enable save button immediately
+        saveLocationBtn.disabled = false;
+        saveLocationBtn.innerHTML = 'Add Shop';
         
         // Initialize map
         setTimeout(() => {
+            if (map) {
+                map.remove();
+            }
             initMap();
-            setupValidation();
+            
+            // Set a default view (Philippines)
+            if (map) {
+                map.setView([14.5995, 120.9842], 13);
+            }
         }, 100);
         
         editModal.style.display = 'flex';
@@ -2680,7 +2590,6 @@
         `;
         document.body.appendChild(toast);
         
-        // Auto remove after 4 seconds
         setTimeout(() => {
             toast.style.opacity = '0';
             toast.style.transform = 'translateX(100%)';
@@ -2691,7 +2600,6 @@
             }, 300);
         }, 4000);
         
-        // Allow manual dismissal
         toast.addEventListener('click', function() {
             if (toast.parentNode) {
                 toast.parentNode.removeChild(toast);
@@ -2701,14 +2609,10 @@
 
     // Initialize the app
     document.addEventListener('DOMContentLoaded', function() {
-        // Clear any existing token to force login
         localStorage.removeItem('adminToken');
-        
-        // Always show login page on initial load
         loginPage.style.display = 'block';
         dashboardPage.style.display = 'none';
         
-        // Clear form fields
         document.getElementById('username').value = '';
         document.getElementById('password').value = '';
         errorMessage.style.display = 'none';
