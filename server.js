@@ -26,6 +26,12 @@ app.options('*', cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
+// Request logging middleware
+app.use((req, res, next) => {
+    console.log(`📨 ${req.method} ${req.path}`);
+    next();
+});
+
 // Configure email transporter (SMTP) for Gmail
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587;
@@ -68,7 +74,7 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
 }
 
 // Database connection pool and config (Postgres)
-let pool; //FIXED: Use DATABASE_URL for Render and increase connection timeout
+let pool;
 const DB_CONFIG = process.env.DATABASE_URL ? {
     connectionString: process.env.DATABASE_URL,
     ssl: {
@@ -79,7 +85,7 @@ const DB_CONFIG = process.env.DATABASE_URL ? {
     max: 10,
     statement_timeout: 60000
 } : {
-    host: process.env.DB_HOST || 'localhost', // Fallback for local development
+    host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || '',
@@ -92,14 +98,44 @@ const DB_CONFIG = process.env.DATABASE_URL ? {
 };
 
 function replacePlaceholders(sql) {
-    // Replace each ? with $1, $2, ... for pg parameterized queries
     let i = 0;
     return sql.replace(/\?/g, () => `$${++i}`);
 }
 
-async function dbQuery(text, params = []) {
+async function dbQuery(text, params = [], retryCount = 0, maxRetries = 3) {
+    if (!pool) {
+        throw new Error('Database pool not initialized');
+    }
+    
     const t = replacePlaceholders(text);
-    return pool.query(t, params);
+    
+    try {
+        return await pool.query(t, params);
+    } catch (error) {
+        if ((error.message.includes('Connection terminated') || 
+             error.message.includes('socket hang up') ||
+             error.code === 'ECONNRESET' ||
+             error.code === 'ECONNREFUSED') && 
+            retryCount < maxRetries) {
+            
+            console.warn(`⚠️ Connection error, retrying (${retryCount + 1}/${maxRetries}):`, error.message);
+            
+            await recreatePool();
+            
+            await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
+            
+            return dbQuery(text, params, retryCount + 1, maxRetries);
+        }
+        
+        console.error('❌ Database query failed:', {
+            sql: text,
+            error: error.message,
+            code: error.code,
+            detail: error.detail
+        });
+        
+        throw error;
+    }
 }
 
 async function recreatePool() {
@@ -118,7 +154,6 @@ async function checkAllTables() {
     try {
         console.log('Checking all required tables...');
         
-        // Check and create users table
         const usersCheck = await dbQuery(`
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -143,7 +178,6 @@ async function checkAllTables() {
             console.log('✓ Users table created');
         }
         
-        // Check and create locations table
         const locationsCheck = await dbQuery(`
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -176,7 +210,6 @@ async function checkAllTables() {
             console.log('✓ Locations table created');
         }
         
-        // Check and create admins table
         const adminsCheck = await dbQuery(`
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -196,7 +229,6 @@ async function checkAllTables() {
                 )
             `);
             
-            // Create default admin account
             const hashedPassword = await bcrypt.hash('admin123', 10);
             await dbQuery(
                 'INSERT INTO admins (username, password) VALUES ($1, $2)',
@@ -206,7 +238,6 @@ async function checkAllTables() {
             console.log('✓ Admins table created with default admin (username: admin, password: admin123)');
         }
         
-        // Check and create favorites table
         const favoritesCheck = await dbQuery(`
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -229,7 +260,6 @@ async function checkAllTables() {
             console.log('✓ Favorites table created');
         }
         
-        // Check and create reviews table
         const reviewsCheck = await dbQuery(`
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -254,7 +284,6 @@ async function checkAllTables() {
             console.log('✓ Reviews table created');
         }
         
-        // Check and create location_visits table
         const visitsCheck = await dbQuery(`
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -276,7 +305,6 @@ async function checkAllTables() {
             console.log('✓ Location visits table created');
         }
         
-        // Check and create location_views table
         const viewsCheck = await dbQuery(`
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
@@ -310,13 +338,8 @@ async function createIndexes() {
     try {
         console.log('Creating indexes for better performance...');
         
-        // Index for locations type queries
         await dbQuery('CREATE INDEX IF NOT EXISTS idx_locations_type ON locations(type)');
-        
-        // Index for location searches
         await dbQuery('CREATE INDEX IF NOT EXISTS idx_locations_name ON locations(name)');
-        
-        // Index for user-specific data
         await dbQuery('CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id)');
         await dbQuery('CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id)');
         await dbQuery('CREATE INDEX IF NOT EXISTS idx_reviews_location ON reviews(location_id)');
@@ -332,14 +355,12 @@ async function createIndexes() {
 // Add sample data for testing
 async function addSampleData() {
     try {
-        // Check if there are already locations
         const countResult = await dbQuery('SELECT COUNT(*) as count FROM locations');
         const locationCount = parseInt(countResult.rows[0].count);
         
         if (locationCount === 0) {
             console.log('Adding sample data...');
             
-            // Sample gas stations
             const stations = [
                 {
                     name: 'Shell Station Main',
@@ -379,7 +400,6 @@ async function addSampleData() {
                 }
             ];
             
-            // Sample repair shops
             const shops = [
                 {
                     name: 'Quick Fix Auto Repair',
@@ -407,7 +427,6 @@ async function addSampleData() {
                 }
             ];
             
-            // Insert stations
             for (const station of stations) {
                 await dbQuery(
                     `INSERT INTO locations (name, type, address, lat, lng, contact, operating_hours, fuel_types, services_offered, views, visits)
@@ -420,7 +439,6 @@ async function addSampleData() {
                 );
             }
             
-            // Insert shops
             for (const shop of shops) {
                 await dbQuery(
                     `INSERT INTO locations (name, type, address, lat, lng, contact, operating_hours, fuel_types, services_offered, views, visits)
@@ -445,7 +463,6 @@ async function addMissingColumnsPostgres() {
     try {
         console.log('Checking for missing columns in PostgreSQL...');
         
-        // Get all existing columns
         const columnsCheck = await dbQuery(`
             SELECT column_name 
             FROM information_schema.columns 
@@ -461,7 +478,9 @@ async function addMissingColumnsPostgres() {
             'services_offered': 'ADD COLUMN services_offered TEXT',
             'description': 'ADD COLUMN description TEXT',
             'views': 'ADD COLUMN views INTEGER DEFAULT 0',
-            'visits': 'ADD COLUMN visits INTEGER DEFAULT 0'
+            'visits': 'ADD COLUMN visits INTEGER DEFAULT 0',
+            'is_archived': 'ADD COLUMN is_archived BOOLEAN DEFAULT FALSE',
+            'archived_at': 'ADD COLUMN archived_at TIMESTAMP'
         };
 
         const missingColumns = Object.entries(requiredColumns)
@@ -489,56 +508,26 @@ async function addMissingColumnsPostgres() {
     }
 }
 
-// FIXED: Update location schema for PostgreSQL
-async function updateLocationSchemaPostgres() {
-    try {
-        console.log('Updating location schema with new fields...');
-        
-        // Check if new columns exist
-        const columns = await dbQuery(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'locations'
-        `);
-        
-        const existingColumns = columns.rows.map(col => col.column_name);
-        const newColumns = [
-            'contact',
-            'operating_hours', 
-            'fuel_types',
-            'services_offered',
-            'description'
-        ];
-        
-        for (const column of newColumns) {
-            if (!existingColumns.includes(column)) {
-                console.log(`Adding column: ${column}`);
-                let columnType = 'VARCHAR(500)';
-                if (column === 'description') {
-                    columnType = 'TEXT';
-                }
-                
-                await dbQuery(`
-                    ALTER TABLE locations 
-                    ADD COLUMN ${column} ${columnType}
-                `);
-            }
-        }
-        
-        console.log('✓ Location schema updated successfully');
-    } catch (error) {
-        console.error('Error updating location schema:', error);
-    }
-}
-
 async function initializeDatabase() {
     try {
         console.log('🔄 Initializing database connection...');
         console.log('Using DATABASE_URL:', process.env.DATABASE_URL ? '✓ Yes' : '✗ No (using individual DB_* vars)');
         
         pool = new Pool(DB_CONFIG);
+        
+        pool.on('error', (err, client) => {
+            console.error('❌ Unexpected error on idle client in pool:', err);
+            console.error('   Error details:', err.message);
+        });
+        
+        pool.on('connect', () => {
+            console.log('✓ New client connected to pool');
+        });
+        
+        pool.on('remove', () => {
+            console.log('⚠️ Client removed from pool');
+        });
 
-        // Simple connectivity check with timeout
         const res = await Promise.race([
             pool.query('SELECT NOW()'),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timeout after 15s')), 15000))
@@ -546,16 +535,9 @@ async function initializeDatabase() {
         
         console.log('✓ Connected to Postgres database - Server time:', res.rows[0].now);
 
-        // Check and create all required tables
         await checkAllTables();
-        
-        // Create indexes for performance
         await createIndexes();
-        
-        // Check and add missing columns to locations
         await addMissingColumnsPostgres();
-        
-        // Add sample data if empty
         await addSampleData();
         
     } catch (error) {
@@ -573,8 +555,6 @@ async function initializeDatabase() {
         console.error('\n2. Verify Postgres is running and accessible');
         console.error('3. Check network/firewall settings');
         console.error('\nWill retry on next request...\n');
-        
-        // Don't exit - allow server to start and retry on first request
     }
 }
 
@@ -632,7 +612,6 @@ function authenticateAdmin(req, res, next) {
 // FIXED: Health check endpoint
 app.get('/api/health', async (req, res) => {
     try {
-        // Try to verify database connection
         if (!pool) {
             return res.status(503).json({ 
                 status: 'DEGRADED',
@@ -662,48 +641,15 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-// User registration
-app.post('/api/register', async (req, res) => {
+// ========== AUTH ENDPOINTS ==========
+
+// Auth login endpoint (alternative to /api/login)
+app.post('/api/auth/login', async (req, res) => {
     try {
-        const { name, email, password } = req.body;
-        
-        if (!name || !email || !password) {
-            return res.status(400).json({ error: 'All fields are required' });
+        if (!pool) {
+            return res.status(503).json({ error: 'Database not ready yet. Please try again in a few seconds.' });
         }
 
-        const results = (await dbQuery('SELECT id FROM users WHERE email = $1', [email])).rows;
-        if (results.length > 0) {
-            return res.status(400).json({ error: 'User already exists' });
-        }
-        
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const insertResult = await dbQuery(
-            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id',
-            [name, email, hashedPassword]
-        );
-
-        const userId = insertResult.rows[0].id;
-
-        const token = jwt.sign(
-            { id: userId, email, name },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        res.status(201).json({
-            message: 'User created successfully',
-            token,
-            user: { id: userId, name, email }
-        });
-    } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// User login
-app.post('/api/login', async (req, res) => {
-    try {
         const { email, password } = req.body;
         
         if (!email || !password) {
@@ -733,8 +679,119 @@ app.post('/api/login', async (req, res) => {
             user: { id: user.id, name: user.name, email: user.email }
         });
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Server error' });
+        console.error('❌ Auth login error:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail,
+            stack: error.stack
+        });
+        res.status(500).json({ error: error.message || 'Server error' });
+    }
+});
+
+// User registration
+app.post('/api/register', async (req, res) => {
+    try {
+        if (!pool) {
+            return res.status(503).json({ error: 'Database not ready yet. Please try again in a few seconds.' });
+        }
+
+        const { name, email, password } = req.body;
+        
+        if (!name || !email || !password) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+
+        const results = (await dbQuery('SELECT id FROM users WHERE email = $1', [email])).rows;
+        if (results.length > 0) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const insertResult = await dbQuery(
+            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id',
+            [name, email, hashedPassword]
+        );
+
+        const userId = insertResult.rows[0].id;
+
+        const token = jwt.sign(
+            { id: userId, email, name },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.status(201).json({
+            message: 'User created successfully',
+            token,
+            user: { id: userId, name, email }
+        });
+    } catch (error) {
+        console.error('❌ Registration error:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail,
+            stack: error.stack
+        });
+        
+        let errorMessage = 'Registration failed';
+        if (error.code === '23505') {
+            errorMessage = 'Email already exists';
+        } else if (error.code === 'ECONNREFUSED') {
+            errorMessage = 'Database connection failed. Please try again.';
+        }
+        
+        res.status(500).json({ error: errorMessage });
+    }
+});
+
+// User login
+app.post('/api/login', async (req, res) => {
+    try {
+        if (!pool) {
+            return res.status(503).json({ error: 'Database not ready yet. Please try again in a few seconds.' });
+        }
+
+        const { email, password } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+
+        const results = (await dbQuery('SELECT * FROM users WHERE email = $1', [email])).rows;
+        if (results.length === 0) {
+            return res.status(400).json({ error: 'Invalid email or password' });
+        }
+        
+        const user = results[0];
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {
+            return res.status(400).json({ error: 'Invalid email or password' });
+        }
+        
+        const token = jwt.sign(
+            { id: user.id, email: user.email, name: user.name },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+        
+        res.json({
+            message: 'Login successful',
+            token,
+            user: { id: user.id, name: user.name, email: user.email }
+        });
+    } catch (error) {
+        console.error('❌ User login error:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail,
+            stack: error.stack
+        });
+        res.status(500).json({ error: error.message || 'Server error' });
     }
 });
 
@@ -762,7 +819,6 @@ app.post('/api/forgot-password', async (req, res) => {
         
         console.log(`Password reset token for ${email}: ${resetToken}`);
 
-        // Try to send email if transporter available
         if (mailTransporter) {
             try {
                 await mailTransporter.sendMail({
@@ -774,10 +830,7 @@ app.post('/api/forgot-password', async (req, res) => {
                 });
             } catch (mailErr) {
                 console.error('Failed to send reset email:', mailErr);
-                // Do not expose mail errors to the client; fall back to logging
             }
-        } else {
-            // Fallback: already logged the code to console above
         }
 
         res.json({ 
@@ -785,6 +838,54 @@ app.post('/api/forgot-password', async (req, res) => {
         });
     } catch (error) {
         console.error('Forgot password error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Auth forgot password endpoint
+app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+        
+        const results = (await dbQuery('SELECT id FROM users WHERE email = $1', [email])).rows;
+        if (results.length === 0) {
+            return res.json({ message: 'If the email exists, a reset code has been sent' });
+        }
+        
+        const resetToken = crypto.randomInt(100000, 999999).toString();
+        const resetTokenExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000);
+        
+        await dbQuery(
+            'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3',
+            [resetToken, resetTokenExpiry, email]
+        );
+        
+        console.log(`Password reset token for ${email}: ${resetToken}`);
+        
+        if (mailTransporter) {
+            try {
+                await mailTransporter.sendMail({
+                    from: SMTP_FROM,
+                    to: email,
+                    subject: 'MOONRIDER Password Reset Code',
+                    text: `Your password reset code is: ${resetToken}. It expires in 1 hour. If you did not request this, ignore this email.`,
+                    html: `<p>Your password reset code is: <strong>${resetToken}</strong></p><p>This code expires in 1 hour.</p>`
+                });
+            } catch (mailErr) {
+                console.error('Failed to send reset email:', mailErr);
+            }
+        }
+        
+        res.json({ 
+            message: 'If the email exists, a reset code has been generated',
+            token: resetToken
+        });
+    } catch (error) {
+        console.error('Auth forgot password error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -829,9 +930,53 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
+// Auth reset password endpoint
+app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+        const { email, code, newPassword } = req.body;
+        
+        if (!email || !code || !newPassword) {
+            return res.status(400).json({ error: 'Email, code, and new password are required' });
+        }
+        
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+        }
+        
+        const results = (await dbQuery(
+            'SELECT id, reset_token_expiry FROM users WHERE email = $1 AND reset_token = $2',
+            [email, code]
+        )).rows;
+        
+        if (results.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired reset code' });
+        }
+        
+        const user = results[0];
+        if (new Date(user.reset_token_expiry) < new Date()) {
+            return res.status(400).json({ error: 'Reset code has expired' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await dbQuery(
+            'UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2',
+            [hashedPassword, email]
+        );
+        
+        res.json({ message: 'Password reset successfully' });
+    } catch (error) {
+        console.error('Auth reset password error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // Admin login
 app.post('/api/admin-login', async (req, res) => {
     try {
+        if (!pool) {
+            return res.status(503).json({ error: 'Database not ready yet. Please try again in a few seconds.' });
+        }
+
         const { username, password } = req.body;
         
         if (!username || !password) {
@@ -861,12 +1006,17 @@ app.post('/api/admin-login', async (req, res) => {
             admin: { id: admin.id, username: admin.username }
         });
     } catch (error) {
-        console.error('Admin login error:', error);
-        res.status(500).json({ error: 'Server error' });
+        console.error('❌ Admin login error:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail,
+            stack: error.stack
+        });
+        res.status(500).json({ error: error.message || 'Server error' });
     }
 });
 
-// Get all locations - UPDATED without archive filters
+// Get all locations
 app.get('/api/locations', async (req, res) => {
     try {
         const { type } = req.query;
@@ -875,9 +1025,9 @@ app.get('/api/locations', async (req, res) => {
             SELECT 
                 id, name, type, lat, lng, address, 
                 contact, operating_hours, fuel_types, services_offered,
-                description, image, views, visits, created_at
+                description, image, views, visits, created_at, is_archived, archived_at
             FROM locations 
-            WHERE 1=1
+            WHERE is_archived = false OR is_archived IS NULL
         `;
         let params = [];
         
@@ -886,7 +1036,14 @@ app.get('/api/locations', async (req, res) => {
             params.push(type);
         }
         
+        query += ' ORDER BY name';
+        
         const locations = (await dbQuery(query, params)).rows;
+        
+        console.log(`📍 Fetched ${locations.length} locations (type: ${type || 'all'})`);
+        if (locations.length > 0) {
+            console.log('   First location:', locations[0]);
+        }
 
         res.json({ 
             locations: locations.map(loc => ({
@@ -913,7 +1070,6 @@ app.get('/api/admin/locations', authenticateAdmin, async (req, res) => {
         let params = [];
         
         if (type && type !== 'all') {
-            // Handle both frontend and backend type names
             let dbType = type;
             if (type === 'station') dbType = 'gasoline';
             if (type === 'shop') dbType = 'repair';
@@ -961,7 +1117,6 @@ app.post('/api/favorites', authenticateToken, async (req, res) => {
         );
         res.json({ message: 'Added to favorites' });
     } catch (error) {
-        // Postgres duplicate key error is 23505. Keep MySQL code for compatibility.
         if (error.code === '23505' || error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ error: 'Already in favorites' });
         }
@@ -987,7 +1142,7 @@ app.delete('/api/favorites/:locationId', authenticateToken, async (req, res) => 
     }
 });
 
-// Record location visit - FIXED to use optional auth
+// Record location visit
 app.post('/api/locations/:id/visit', optionalAuth, async (req, res) => {
     try {
         const userId = req.user ? req.user.id : null;
@@ -1006,7 +1161,6 @@ app.post('/api/locations/:id/visit', optionalAuth, async (req, res) => {
         }
     } catch (error) {
         console.error('Record visit error:', error);
-        // If the error looks like a transient connection reset, try to recreate the pool once
         if (error && (error.code === 'ECONNRESET' || error.errno === 'ECONNRESET')) {
             console.warn('Transient DB connection error detected, recreating pool and retrying on next request');
             try { await recreatePool(); } catch (e) { console.error('Failed to recreate DB pool:', e); }
@@ -1193,7 +1347,8 @@ app.post('/api/admin/locations', authenticateAdmin, async (req, res) => {
             description
         } = req.body;
 
-        // Validation
+        console.log('📝 Add location request:', { name, address, lat, lng, type });
+
         const errors = [];
         
         if (!name || name.trim().length < 2) {
@@ -1229,7 +1384,6 @@ app.post('/api/admin/locations', authenticateAdmin, async (req, res) => {
             return res.status(400).json({ error: errors.join(', ') });
         }
 
-        // Accept frontend synonyms: 'station' -> 'gasoline', 'shop' -> 'repair'
         let normalizedType = type;
         if (type === 'station') normalizedType = 'gasoline';
         if (type === 'shop') normalizedType = 'repair';
@@ -1238,7 +1392,6 @@ app.post('/api/admin/locations', authenticateAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Type must be either "gasoline" or "repair"' });
         }
 
-        // Type-specific validation
         if (normalizedType === 'gasoline' && (!fuel_types || fuel_types.trim().length < 2)) {
             errors.push('Fuel types are required for gas stations');
         }
@@ -1271,14 +1424,16 @@ app.post('/api/admin/locations', authenticateAdmin, async (req, res) => {
         const newId = result.rows[0].id;
         const newLocation = (await dbQuery('SELECT * FROM locations WHERE id = $1', [newId])).rows[0];
 
+        console.log('✅ Location added successfully:', newId);
+
         res.status(201).json({ 
             message: 'Location added successfully',
             location: newLocation,
             id: newId
         });
     } catch (error) {
-        console.error('Add location error:', error);
-        res.status(500).json({ error: 'Failed to add location' });
+        console.error('❌ Add location error:', error);
+        res.status(500).json({ error: 'Failed to add location: ' + error.message });
     }
 });
 
@@ -1299,7 +1454,8 @@ app.put('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
             description
         } = req.body;
 
-        // Validation
+        console.log('📝 Update location request:', { id: locationId, name, address, lat, lng, type });
+
         const errors = [];
         
         if (!name || name.trim().length < 2) {
@@ -1335,7 +1491,6 @@ app.put('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
             return res.status(400).json({ error: errors.join(', ') });
         }
 
-        // Accept frontend synonyms: 'station' -> 'gasoline', 'shop' -> 'repair'
         let normalizedType = type;
         if (type === 'station') normalizedType = 'gasoline';
         if (type === 'shop') normalizedType = 'repair';
@@ -1344,7 +1499,6 @@ app.put('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Type must be either "gasoline" or "repair"' });
         }
 
-        // Type-specific validation
         if (normalizedType === 'gasoline' && (!fuel_types || fuel_types.trim().length < 2)) {
             errors.push('Fuel types are required for gas stations');
         }
@@ -1357,13 +1511,11 @@ app.put('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
             return res.status(400).json({ error: errors.join(', ') });
         }
 
-        // Check if location exists
         const existingLocation = (await dbQuery('SELECT id FROM locations WHERE id = $1', [locationId])).rows;
         if (existingLocation.length === 0) {
             return res.status(404).json({ error: 'Location not found' });
         }
 
-        // Build update query
         let query = `UPDATE locations SET 
                 name = $1, address = $2, lat = $3, lng = $4, type = $5,
                 contact = $6, operating_hours = $7, fuel_types = $8, services_offered = $9, description = $10
@@ -1382,36 +1534,67 @@ app.put('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
             locationId
         ];
 
+        console.log('📝 Executing update query:', query);
+        console.log('📝 With params:', params);
+
         const result = await dbQuery(query, params);
+
+        console.log('✅ Location updated successfully:', locationId);
 
         res.json({ 
             message: 'Location updated successfully'
         });
     } catch (error) {
-        console.error('Update location error:', error);
-        res.status(500).json({ error: 'Failed to update location' });
+        console.error('❌ Update location error:', error);
+        res.status(500).json({ error: 'Failed to update location: ' + error.message });
     }
 });
 
-// Admin: Delete location (permanent deletion)
+// FIXED: Admin: Delete location (permanent deletion) with foreign key constraint handling
 app.delete('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
+    const client = await pool.connect();
     try {
         const locationId = req.params.id;
+        console.log(`🗑️ Deleting location ID: ${locationId}`);
         
-        // Check if location exists
-        const existingLocation = (await dbQuery('SELECT id FROM locations WHERE id = $1', [locationId])).rows;
-        if (existingLocation.length === 0) {
+        await client.query('BEGIN');
+        
+        const existingLocation = await client.query('SELECT id FROM locations WHERE id = $1', [locationId]);
+        if (existingLocation.rows.length === 0) {
+            console.warn(`⚠️ Location not found: ${locationId}`);
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Location not found' });
         }
         
-        const result = await dbQuery('DELETE FROM locations WHERE id = $1', [locationId]);
+        await client.query('DELETE FROM favorites WHERE location_id = $1', [locationId]);
+        await client.query('DELETE FROM reviews WHERE location_id = $1', [locationId]);
+        await client.query('DELETE FROM location_visits WHERE location_id = $1', [locationId]);
+        await client.query('DELETE FROM location_views WHERE location_id = $1', [locationId]);
+        
+        const result = await client.query('DELETE FROM locations WHERE id = $1', [locationId]);
+        
+        await client.query('COMMIT');
+        console.log(`✓ Location deleted successfully: ${locationId}`);
 
         res.json({ 
             message: 'Location deleted successfully'
         });
     } catch (error) {
-        console.error('Delete location error:', error);
-        res.status(500).json({ error: 'Failed to delete location' });
+        await client.query('ROLLBACK');
+        console.error('❌ Delete location error:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+        });
+        
+        let errorMessage = 'Failed to delete location';
+        if (error.code === '23503') {
+            errorMessage = 'Cannot delete location due to related records.';
+        }
+        
+        res.status(500).json({ error: errorMessage });
+    } finally {
+        client.release();
     }
 });
 
@@ -1432,8 +1615,7 @@ app.get('/api/nearby', async (req, res) => {
             return res.status(400).json({ error: 'Invalid coordinates' });
         }
         
-        // Calculate bounding box for approximate filtering
-        const earthRadius = 6371; // kilometers
+        const earthRadius = 6371;
         const latDelta = searchRadius / earthRadius * (180 / Math.PI);
         const lngDelta = searchRadius / (earthRadius * Math.cos(userLat * Math.PI / 180)) * (180 / Math.PI);
         
@@ -1523,5 +1705,4 @@ process.on('uncaughtException', (err) => {
         console.warn('Uncaught exception ECONNRESET — recreating pool');
         recreatePool().catch(e => console.error('Failed to recreate pool after uncaughtException:', e));
     }
-    // Do not exit automatically in dev — allow process to continue if possible
 });
