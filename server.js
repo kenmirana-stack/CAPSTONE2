@@ -74,37 +74,40 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
 }
 
 
+let pool;
 const DB_CONFIG = {
-  host: process.env.DB_HOST,       // dpg-d4pcmn6uk2gs73dbalpg-a.oregon-postgres.render.com 
-  port: process.env.DB_PORT,       // 5432 
-  user: process.env.DB_USER,       // moonrider_ukcm_user 
-  password: process.env.DB_PASSWORD, // eEiiGbuVO5gKTg4u9vxL17gDuXwWQgtO 
-  database: process.env.DB_NAME,   // moonrider_ukcm 
-  // CHANGE THIS PART:
-  ssl: {
-    rejectUnauthorized: false      // This allows the connection to Render 
-  },
-  max: 1, // Start with 1 to test stability
-  connectionTimeoutMillis: 5000,
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'bulan_locator',
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 20000,
+    // Relax SSL by default for cloud providers (override by setting DB_SSL=false)
+    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
 };
 
-// 2. Initialize the pool ONCE at the top level
-let pool = new Pool(DB_CONFIG);
+function replacePlaceholders(sql) {
+    // Replace each ? with $1, $2, ... for pg parameterized queries
+    let i = 0;
+    return sql.replace(/\?/g, () => `$${++i}`);
+}
 
-// 3. Simple, robust Query function (No recreatePool needed!)
 async function dbQuery(text, params = []) {
-  try {
-    // Convert '?' to '$1, $2' if your code uses MySQL-style placeholders
-    const t = text.replace(/\?/g, (_, i) => `$${++i}`);
-    
-    return await pool.query(t, params);
-  } catch (error) {
-    console.error('❌ Database query failed:', {
-      sql: text,
-      message: error.message
-    });
-    throw error;
-  }
+    const t = replacePlaceholders(text);
+    return pool.query(t, params);
+}
+
+async function recreatePool() {
+    try {
+        if (pool) {
+            try { await pool.end(); } catch (e) { console.warn('Error ending old pool:', e && e.message); }
+        }
+    } finally {
+        pool = new Pool(DB_CONFIG);
+        console.log('Created new Postgres pool');
+    }
 }
 
 // Check and create all required tables
@@ -1664,5 +1667,6 @@ process.on('uncaughtException', (err) => {
         recreatePool().catch(e => console.error('Failed to recreate pool after uncaughtException:', e));
     }
 });
+
 
 
