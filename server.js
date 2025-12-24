@@ -74,18 +74,29 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
 }
 
 let pool;
-const DB_CONFIG = {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3001,
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'bulan_locator',
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 20000,
-    // Relax SSL by default for cloud providers (override by setting DB_SSL=false)
-    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
-};
+
+// Get database config - prefer DATABASE_URL for cloud deployments (Render, Heroku, etc)
+const DB_CONFIG = process.env.DATABASE_URL 
+    ? {
+        // Cloud deployment - use DATABASE_URL connection string
+        connectionString: process.env.DATABASE_URL,
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 20000,
+        ssl: { rejectUnauthorized: false }
+      }
+    : {
+        // Local development - use individual variables
+        host: process.env.DB_HOST || 'localhost',
+        port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,  // PostgreSQL default port
+        user: process.env.DB_USER || 'postgres',  // PostgreSQL default user
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME || 'bulan_locator',
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 20000,
+        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
+      };
 
 
 function replacePlaceholders(sql) {
