@@ -73,29 +73,20 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
     console.log('Forgot password emails will be logged to console only');
 }
 
-// Database connection pool and config (Postgres)
 let pool;
-const DB_CONFIG = process.env.DATABASE_URL ? {
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    },
-    connectionTimeoutMillis: 60000, // 60 second timeout for cloud environments
-    idleTimeoutMillis: 30000,
-    max: 10,
-    statement_timeout: 60000
-} : {
+const DB_CONFIG = {
     host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
-    user: process.env.DB_USER || 'postgres',
+    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3001,
+    user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'bulan_locator',
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 60000,
-    statement_timeout: 60000,
-    ssl: process.env.DB_SSL === 'false' ? false : (process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined)
+    connectionTimeoutMillis: 20000,
+    // Relax SSL by default for cloud providers (override by setting DB_SSL=false)
+    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
 };
+
 
 function replacePlaceholders(sql) {
     let i = 0;
