@@ -74,68 +74,36 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
 }
 
 
-const pool = new Pool({
-  host: process.env.DB_HOST,       // From your .env: dpg-d4pcmn... 
-  port: process.env.DB_PORT,       // From your .env: 5432 
-  user: process.env.DB_USER,       // From your .env: moonrider_ukcm_user 
-  password: process.env.DB_PASSWORD, // From your .env: eEiiGbu... 
-  database: process.env.DB_NAME,   // From your .env: moonrider_ukcm 
+const DB_CONFIG = {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   ssl: {
-    rejectUnauthorized: false      // Required for Render Postgres connections
+    rejectUnauthorized: false // This is critical for Render Postgres 
+  },
+  max: 10, // Max connections in the pool
+  idleTimeoutMillis: 30000
+};
+
+// 2. Initialize the pool ONCE at the top level
+let pool = new Pool(DB_CONFIG);
+
+// 3. Simple, robust Query function (No recreatePool needed!)
+async function dbQuery(text, params = []) {
+  try {
+    // Convert '?' to '$1, $2' if your code uses MySQL-style placeholders
+    const t = text.replace(/\?/g, (_, i) => `$${++i}`);
+    
+    return await pool.query(t, params);
+  } catch (error) {
+    console.error('❌ Database query failed:', {
+      sql: text,
+      message: error.message
+    });
+    throw error;
   }
-});
-
-
-function replacePlaceholders(sql) {
-    let i = 0;
-    return sql.replace(/\?/g, () => `$${++i}`);
-}
-
-async function dbQuery(text, params = [], retryCount = 0, maxRetries = 3) {
-    if (!pool) {
-        throw new Error('Database pool not initialized');
-    }
-    
-    const t = replacePlaceholders(text);
-    
-    try {
-        return await pool.query(t, params);
-    } catch (error) {
-        if ((error.message.includes('Connection terminated') || 
-             error.message.includes('socket hang up') ||
-             error.code === 'ECONNRESET' ||
-             error.code === 'ECONNREFUSED') && 
-            retryCount < maxRetries) {
-            
-            console.warn(`⚠️ Connection error, retrying (${retryCount + 1}/${maxRetries}):`, error.message);
-            
-            await recreatePool();
-            
-            await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
-            
-            return dbQuery(text, params, retryCount + 1, maxRetries);
-        }
-        
-        console.error('❌ Database query failed:', {
-            sql: text,
-            error: error.message,
-            code: error.code,
-            detail: error.detail
-        });
-        
-        throw error;
-    }
-}
-
-async function recreatePool() {
-    try {
-        if (pool) {
-            try { await pool.end(); } catch (e) { console.warn('Error ending old pool:', e && e.message); }
-        }
-    } finally {
-        pool = new Pool(DB_CONFIG);
-        console.log('Created new Postgres pool');
-    }
 }
 
 // Check and create all required tables
@@ -1695,3 +1663,4 @@ process.on('uncaughtException', (err) => {
         recreatePool().catch(e => console.error('Failed to recreate pool after uncaughtException:', e));
     }
 });
+
