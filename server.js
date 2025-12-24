@@ -73,30 +73,17 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
     console.log('Forgot password emails will be logged to console only');
 }
 
-let pool;
 
-// Get database config - prefer DATABASE_URL for cloud deployments (Render, Heroku, etc)
-const DB_CONFIG = process.env.DATABASE_URL 
-    ? {
-        // Cloud deployment - use DATABASE_URL connection string
-        connectionString: process.env.DATABASE_URL,
-        max: 10,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 20000,
-        ssl: { rejectUnauthorized: false }
-      }
-    : {
-        // Local development - use individual variables
-        host: process.env.DB_HOST || 'localhost',
-        port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,  // PostgreSQL default port
-        user: process.env.DB_USER || 'postgres',  // PostgreSQL default user
-        password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || 'bulan_locator',
-        max: 10,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 20000,
-        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
-      };
+const pool = new Pool({
+  host: process.env.DB_HOST,       // From your .env: dpg-d4pcmn... 
+  port: process.env.DB_PORT,       // From your .env: 5432 
+  user: process.env.DB_USER,       // From your .env: moonrider_ukcm_user 
+  password: process.env.DB_PASSWORD, // From your .env: eEiiGbu... 
+  database: process.env.DB_NAME,   // From your .env: moonrider_ukcm 
+  ssl: {
+    rejectUnauthorized: false      // Required for Render Postgres connections
+  }
+});
 
 
 function replacePlaceholders(sql) {
