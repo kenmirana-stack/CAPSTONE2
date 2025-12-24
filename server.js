@@ -1,3 +1,8 @@
+// NOTE: This is your server.js with connection-resilience fixes:
+//  - Use DATABASE_URL if provided
+//  - Recreate pool on fatal errors and retry queries once
+//  - Added pool.on('error') auto-recreate handler
+
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
@@ -88,15 +93,54 @@ const DB_CONFIG = {
     ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
 };
 
+// If the environment provides a DATABASE_URL (e.g. Render, Heroku), prefer connectionString
+function getPoolOptions() {
+    if (process.env.DATABASE_URL) {
+        console.log('Using DATABASE_URL for Postgres connection');
+        return {
+            connectionString: process.env.DATABASE_URL,
+            max: DB_CONFIG.max,
+            idleTimeoutMillis: DB_CONFIG.idleTimeoutMillis,
+            connectionTimeoutMillis: DB_CONFIG.connectionTimeoutMillis,
+            ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
+        };
+    }
+    return DB_CONFIG;
+}
+
 function replacePlaceholders(sql) {
     // Replace each ? with $1, $2, ... for pg parameterized queries
     let i = 0;
     return sql.replace(/\?/g, () => `$${++i}`);
 }
 
+// Robust query wrapper: if pool is missing or a fatal connection error occurs, recreate and retry once.
 async function dbQuery(text, params = []) {
     const t = replacePlaceholders(text);
-    return pool.query(t, params);
+
+    if (!pool) {
+        console.warn('DB pool not initialized - creating pool now');
+        await recreatePool();
+    }
+
+    try {
+        return await pool.query(t, params);
+    } catch (err) {
+        const msg = (err && (err.code || err.message || '')).toString();
+        // Detect connection-terminated or ECONNRESET style failures and try to recover once
+        if (msg.includes('ECONNRESET') || msg.includes('Connection terminated') || msg.includes('terminated unexpectedly') || msg.includes('Client was closed and is not queryable')) {
+            console.warn('Detected fatal DB connection error:', err.message || err);
+            console.warn('Recreating pool and retrying query once...');
+            try {
+                await recreatePool();
+                return await pool.query(t, params);
+            } catch (retryErr) {
+                console.error('Retry after pool recreation failed:', retryErr);
+                throw retryErr;
+            }
+        }
+        throw err;
+    }
 }
 
 async function recreatePool() {
@@ -105,7 +149,19 @@ async function recreatePool() {
             try { await pool.end(); } catch (e) { console.warn('Error ending old pool:', e && e.message); }
         }
     } finally {
-        pool = new Pool(DB_CONFIG);
+        pool = new Pool(getPoolOptions());
+        // Automatic recreation on idle client errors
+        pool.on('error', async (err) => {
+            console.error('❌ Unexpected error on idle client in pool (pool.on error):', err && err.message);
+            // Try recreate asynchronously (do not block)
+            try {
+                await recreatePool();
+                console.log('✓ Recreated Postgres pool after idle client error');
+            } catch (e) {
+                console.error('Failed to recreate pool after pool.on error:', e && e.message);
+            }
+        });
+
         console.log('Created new Postgres pool');
     }
 }
@@ -474,11 +530,13 @@ async function initializeDatabase() {
         console.log('🔄 Initializing database connection...');
         console.log('Using DATABASE_URL:', process.env.DATABASE_URL ? '✓ Yes' : '✗ No (using individual DB_* vars)');
         
-        pool = new Pool(DB_CONFIG);
+        pool = new Pool(getPoolOptions());
         
         pool.on('error', (err, client) => {
             console.error('❌ Unexpected error on idle client in pool:', err);
             console.error('   Error details:', err.message);
+            // Try to recreate pool asynchronously
+            recreatePool().catch(e => console.error('Failed to recreate pool after pool.on error:', e && e.message));
         });
         
         pool.on('connect', () => {
@@ -1667,6 +1725,3 @@ process.on('uncaughtException', (err) => {
         recreatePool().catch(e => console.error('Failed to recreate pool after uncaughtException:', e));
     }
 });
-
-
-
