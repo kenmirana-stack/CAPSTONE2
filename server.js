@@ -75,16 +75,17 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
 
 
 const DB_CONFIG = {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  host: process.env.DB_HOST,       // dpg-d4pcmn6uk2gs73dbalpg-a.oregon-postgres.render.com 
+  port: process.env.DB_PORT,       // 5432 
+  user: process.env.DB_USER,       // moonrider_ukcm_user 
+  password: process.env.DB_PASSWORD, // eEiiGbuVO5gKTg4u9vxL17gDuXwWQgtO 
+  database: process.env.DB_NAME,   // moonrider_ukcm 
+  // CHANGE THIS PART:
   ssl: {
-    rejectUnauthorized: false // This is critical for Render Postgres 
+    rejectUnauthorized: false      // This allows the connection to Render 
   },
-  max: 10, // Max connections in the pool
-  idleTimeoutMillis: 30000
+  max: 1, // Start with 1 to test stability
+  connectionTimeoutMillis: 5000,
 };
 
 // 2. Initialize the pool ONCE at the top level
@@ -1663,4 +1664,5 @@ process.on('uncaughtException', (err) => {
         recreatePool().catch(e => console.error('Failed to recreate pool after uncaughtException:', e));
     }
 });
+
 
