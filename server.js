@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
@@ -6,11 +5,44 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
+const multer = require('multer');
+const fs = require('fs');
 const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadsDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'location-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    },
+    fileFilter: function (req, file, cb) {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'), false);
+        }
+    }
+});
 
 // FIXED: More permissive CORS configuration
 app.use(cors({
@@ -25,22 +57,17 @@ app.options('*', cors());
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
+app.use('/uploads', express.static(uploadsDir));
 
-// Request logging middleware
-app.use((req, res, next) => {
-    console.log(`📨 ${req.method} ${req.path}`);
-    next();
-});
-
-// Configure email transporter (SMTP) for Gmail
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
+// Configure email transporter (SMTP) - set via env vars
+const SMTP_HOST = process.env.SMTP_HOST || '';
 const SMTP_PORT = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587;
-const SMTP_USER = process.env.SMTP_USER || 'kengotladeramirana@gmail.com';
-const SMTP_PASS = process.env.SMTP_PASS || 'vjiptextuwtetwom'; // Use Gmail App Password
-const SMTP_FROM = process.env.SMTP_FROM || 'kengotladeramirana@gmail.com';
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || `no-reply@localhost`;
 
 let mailTransporter = null;
-if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
+if (SMTP_HOST && SMTP_USER) {
     mailTransporter = nodemailer.createTransport({
         host: SMTP_HOST,
         port: SMTP_PORT,
@@ -48,96 +75,42 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
         auth: {
             user: SMTP_USER,
             pass: SMTP_PASS
-        },
-        tls: {
-            rejectUnauthorized: false
         }
     });
-    
-    // Verify transporter with better error handling
+    // Verify transporter
     mailTransporter.verify().then(() => {
-        console.log('✓ Gmail SMTP transporter verified and ready');
-        console.log('✓ From:', SMTP_FROM);
+        console.log('✓ SMTP transporter verified');
     }).catch(err => {
-        console.error('❌ Gmail SMTP verification failed:', err.message);
-        console.log('⚠ Please check:');
-        console.log('  - Gmail address and App Password in .env file');
-        console.log('  - 2-Step Verification is enabled in Google Account');
-        console.log('  - App Password is generated for "Mail"');
+        console.warn('SMTP transporter verification failed:', err && err.message);
     });
 } else {
-    console.log('⚠ Gmail SMTP not configured - check .env file');
-    console.log('  - SMTP_USER:', SMTP_USER ? '✓ set' : '✗ missing');
-    console.log('  - SMTP_PASS:', SMTP_PASS ? `✓ set (${SMTP_PASS.length} chars)` : '✗ missing');
-    console.log('  - SMTP_FROM:', SMTP_FROM);
-    console.log('Forgot password emails will be logged to console only');
+    console.log('SMTP not configured - forgot password emails will be logged to console');
 }
 
+// Database connection pool and config (Postgres)
 let pool;
-
-// Get database config - prefer DATABASE_URL for cloud deployments (Render, Heroku, etc)
-const DB_CONFIG = process.env.DATABASE_URL 
-    ? {
-        // Cloud deployment - use DATABASE_URL connection string
-        connectionString: process.env.DATABASE_URL,
-        max: 10,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 20000,
-        ssl: { rejectUnauthorized: false }
-      }
-    : {
-        // Local development - use individual variables
-        host: process.env.DB_HOST || 'localhost',
-        port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,  // PostgreSQL default port
-        user: process.env.DB_USER || 'postgres',  // PostgreSQL default user
-        password: process.env.DB_PASSWORD || '',
-        database: process.env.DB_NAME || 'bulan_locator',
-        max: 10,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 20000,
-        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
-      };
-
+const DB_CONFIG = {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'bulan_locator',
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 20000,
+    // Relax SSL by default for cloud providers (override by setting DB_SSL=false)
+    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
+};
 
 function replacePlaceholders(sql) {
+    // Replace each ? with $1, $2, ... for pg parameterized queries
     let i = 0;
     return sql.replace(/\?/g, () => `$${++i}`);
 }
 
-async function dbQuery(text, params = [], retryCount = 0, maxRetries = 3) {
-    if (!pool) {
-        throw new Error('Database pool not initialized');
-    }
-    
+async function dbQuery(text, params = []) {
     const t = replacePlaceholders(text);
-    
-    try {
-        return await pool.query(t, params);
-    } catch (error) {
-        if ((error.message.includes('Connection terminated') || 
-             error.message.includes('socket hang up') ||
-             error.code === 'ECONNRESET' ||
-             error.code === 'ECONNREFUSED') && 
-            retryCount < maxRetries) {
-            
-            console.warn(`⚠️ Connection error, retrying (${retryCount + 1}/${maxRetries}):`, error.message);
-            
-            await recreatePool();
-            
-            await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
-            
-            return dbQuery(text, params, retryCount + 1, maxRetries);
-        }
-        
-        console.error('❌ Database query failed:', {
-            sql: text,
-            error: error.message,
-            code: error.code,
-            detail: error.detail
-        });
-        
-        throw error;
-    }
+    return pool.query(t, params);
 }
 
 async function recreatePool() {
@@ -151,36 +124,13 @@ async function recreatePool() {
     }
 }
 
-// Check and create all required tables
-async function checkAllTables() {
+// FIXED: Add missing columns for PostgreSQL
+async function addMissingColumnsPostgres() {
     try {
-        console.log('Checking all required tables...');
+        console.log('Checking for missing columns in PostgreSQL...');
         
-        const usersCheck = await dbQuery(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'users'
-            );
-        `);
-        
-        if (!usersCheck.rows[0].exists) {
-            console.log('Creating users table...');
-            await dbQuery(`
-                CREATE TABLE users (
-                    id SERIAL PRIMARY KEY,
-                    name VARCHAR(100) NOT NULL,
-                    email VARCHAR(255) UNIQUE NOT NULL,
-                    password VARCHAR(255) NOT NULL,
-                    reset_token VARCHAR(100),
-                    reset_token_expiry TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-            console.log('✓ Users table created');
-        }
-        
-        const locationsCheck = await dbQuery(`
+        // Check if locations table exists
+        const tableCheck = await dbQuery(`
             SELECT EXISTS (
                 SELECT FROM information_schema.tables 
                 WHERE table_schema = 'public' 
@@ -188,7 +138,7 @@ async function checkAllTables() {
             );
         `);
         
-        if (!locationsCheck.rows[0].exists) {
+        if (!tableCheck.rows[0].exists) {
             console.log('Creating locations table...');
             await dbQuery(`
                 CREATE TABLE locations (
@@ -206,265 +156,16 @@ async function checkAllTables() {
                     image VARCHAR(500),
                     views INTEGER DEFAULT 0,
                     visits INTEGER DEFAULT 0,
+                    is_archived BOOLEAN DEFAULT FALSE,
+                    archived_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            console.log('✓ Locations table created');
+            console.log('✓ Locations table created successfully');
+            return;
         }
-        
-        const adminsCheck = await dbQuery(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'admins'
-            );
-        `);
-        
-        if (!adminsCheck.rows[0].exists) {
-            console.log('Creating admins table...');
-            await dbQuery(`
-                CREATE TABLE admins (
-                    id SERIAL PRIMARY KEY,
-                    username VARCHAR(50) UNIQUE NOT NULL,
-                    password VARCHAR(255) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-            
-            const hashedPassword = await bcrypt.hash('admin123', 10);
-            await dbQuery(
-                'INSERT INTO admins (username, password) VALUES ($1, $2)',
-                ['admin', hashedPassword]
-            );
-            
-            console.log('✓ Admins table created with default admin (username: admin, password: admin123)');
-        }
-        
-        const favoritesCheck = await dbQuery(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'favorites'
-            );
-        `);
-        
-        if (!favoritesCheck.rows[0].exists) {
-            console.log('Creating favorites table...');
-            await dbQuery(`
-                CREATE TABLE favorites (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-                    location_id INTEGER REFERENCES locations(id) ON DELETE CASCADE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(user_id, location_id)
-                )
-            `);
-            console.log('✓ Favorites table created');
-        }
-        
-        const reviewsCheck = await dbQuery(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'reviews'
-            );
-        `);
-        
-        if (!reviewsCheck.rows[0].exists) {
-            console.log('Creating reviews table...');
-            await dbQuery(`
-                CREATE TABLE reviews (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-                    location_id INTEGER REFERENCES locations(id) ON DELETE CASCADE,
-                    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-                    comment TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(user_id, location_id)
-                )
-            `);
-            console.log('✓ Reviews table created');
-        }
-        
-        const visitsCheck = await dbQuery(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'location_visits'
-            );
-        `);
-        
-        if (!visitsCheck.rows[0].exists) {
-            console.log('Creating location_visits table...');
-            await dbQuery(`
-                CREATE TABLE location_visits (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                    location_id INTEGER REFERENCES locations(id) ON DELETE CASCADE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-            console.log('✓ Location visits table created');
-        }
-        
-        const viewsCheck = await dbQuery(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'location_views'
-            );
-        `);
-        
-        if (!viewsCheck.rows[0].exists) {
-            console.log('Creating location_views table...');
-            await dbQuery(`
-                CREATE TABLE location_views (
-                    id SERIAL PRIMARY KEY,
-                    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                    location_id INTEGER REFERENCES locations(id) ON DELETE CASCADE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-            console.log('✓ Location views table created');
-        }
-        
-        console.log('✓ All required tables are ready');
-        
-    } catch (error) {
-        console.error('Error checking/creating tables:', error);
-    }
-}
 
-// Create indexes for better performance
-async function createIndexes() {
-    try {
-        console.log('Creating indexes for better performance...');
-        
-        await dbQuery('CREATE INDEX IF NOT EXISTS idx_locations_type ON locations(type)');
-        await dbQuery('CREATE INDEX IF NOT EXISTS idx_locations_name ON locations(name)');
-        await dbQuery('CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id)');
-        await dbQuery('CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id)');
-        await dbQuery('CREATE INDEX IF NOT EXISTS idx_reviews_location ON reviews(location_id)');
-        await dbQuery('CREATE INDEX IF NOT EXISTS idx_visits_location ON location_visits(location_id)');
-        await dbQuery('CREATE INDEX IF NOT EXISTS idx_views_location ON location_views(location_id)');
-        
-        console.log('✓ Database indexes created');
-    } catch (error) {
-        console.error('Error creating indexes:', error);
-    }
-}
-
-// Add sample data for testing
-async function addSampleData() {
-    try {
-        const countResult = await dbQuery('SELECT COUNT(*) as count FROM locations');
-        const locationCount = parseInt(countResult.rows[0].count);
-        
-        if (locationCount === 0) {
-            console.log('Adding sample data...');
-            
-            const stations = [
-                {
-                    name: 'Shell Station Main',
-                    type: 'gasoline',
-                    address: '123 Main Street, Manila',
-                    lat: 14.5995,
-                    lng: 120.9842,
-                    contact: '09171234567',
-                    operating_hours: '24/7',
-                    fuel_types: 'Diesel, Premium, Unleaded',
-                    views: 150,
-                    visits: 45
-                },
-                {
-                    name: 'Petron Express',
-                    type: 'gasoline',
-                    address: '456 Quezon Avenue, Quezon City',
-                    lat: 14.6500,
-                    lng: 121.0300,
-                    contact: '09221234567',
-                    operating_hours: '6:00 AM - 10:00 PM',
-                    fuel_types: 'Diesel, Premium, Super',
-                    views: 120,
-                    visits: 30
-                },
-                {
-                    name: 'Caltex Station',
-                    type: 'gasoline',
-                    address: '789 EDSA, Mandaluyong',
-                    lat: 14.5800,
-                    lng: 121.0400,
-                    contact: '09331234567',
-                    operating_hours: '5:00 AM - 11:00 PM',
-                    fuel_types: 'Diesel, Premium, Unleaded, Gasoline',
-                    views: 95,
-                    visits: 28
-                }
-            ];
-            
-            const shops = [
-                {
-                    name: 'Quick Fix Auto Repair',
-                    type: 'repair',
-                    address: '789 Makati Avenue, Makati',
-                    lat: 14.5500,
-                    lng: 121.0200,
-                    contact: '09441234567',
-                    operating_hours: '8:00 AM - 8:00 PM',
-                    services_offered: 'Oil Change, Brake Repair, Tire Service',
-                    views: 90,
-                    visits: 25
-                },
-                {
-                    name: 'Precision Auto Care',
-                    type: 'repair',
-                    address: '321 Ortigas Center, Pasig',
-                    lat: 14.5900,
-                    lng: 121.0600,
-                    contact: '09551234567',
-                    operating_hours: '7:00 AM - 7:00 PM',
-                    services_offered: 'Engine Repair, Electrical System, Aircon Service',
-                    views: 75,
-                    visits: 18
-                }
-            ];
-            
-            for (const station of stations) {
-                await dbQuery(
-                    `INSERT INTO locations (name, type, address, lat, lng, contact, operating_hours, fuel_types, services_offered, views, visits)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                    [
-                        station.name, station.type, station.address, station.lat, station.lng,
-                        station.contact, station.operating_hours, station.fuel_types, '', 
-                        station.views, station.visits
-                    ]
-                );
-            }
-            
-            for (const shop of shops) {
-                await dbQuery(
-                    `INSERT INTO locations (name, type, address, lat, lng, contact, operating_hours, fuel_types, services_offered, views, visits)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                    [
-                        shop.name, shop.type, shop.address, shop.lat, shop.lng,
-                        shop.contact, shop.operating_hours, '', shop.services_offered,
-                        shop.views, shop.visits
-                    ]
-                );
-            }
-            
-            console.log('✓ Sample data added successfully');
-        }
-    } catch (error) {
-        console.error('Error adding sample data:', error);
-    }
-}
-
-// FIXED: Add missing columns for PostgreSQL
-async function addMissingColumnsPostgres() {
-    try {
-        console.log('Checking for missing columns in PostgreSQL...');
-        
+        // Get all existing columns
         const columnsCheck = await dbQuery(`
             SELECT column_name 
             FROM information_schema.columns 
@@ -474,15 +175,16 @@ async function addMissingColumnsPostgres() {
         
         const existingColumns = columnsCheck.rows.map(row => row.column_name);
         const requiredColumns = {
+            'is_archived': 'ADD COLUMN is_archived BOOLEAN DEFAULT FALSE',
+            'archived_at': 'ADD COLUMN archived_at TIMESTAMP',
+            'image': 'ADD COLUMN image VARCHAR(500)',
             'contact': 'ADD COLUMN contact VARCHAR(100)',
             'operating_hours': 'ADD COLUMN operating_hours VARCHAR(255)',
             'fuel_types': 'ADD COLUMN fuel_types VARCHAR(255)',
             'services_offered': 'ADD COLUMN services_offered TEXT',
             'description': 'ADD COLUMN description TEXT',
             'views': 'ADD COLUMN views INTEGER DEFAULT 0',
-            'visits': 'ADD COLUMN visits INTEGER DEFAULT 0',
-            'is_archived': 'ADD COLUMN is_archived BOOLEAN DEFAULT FALSE',
-            'archived_at': 'ADD COLUMN archived_at TIMESTAMP'
+            'visits': 'ADD COLUMN visits INTEGER DEFAULT 0'
         };
 
         const missingColumns = Object.entries(requiredColumns)
@@ -510,53 +212,62 @@ async function addMissingColumnsPostgres() {
     }
 }
 
-async function initializeDatabase() {
+// FIXED: Update location schema for PostgreSQL
+async function updateLocationSchemaPostgres() {
     try {
-        console.log('🔄 Initializing database connection...');
-        console.log('Using DATABASE_URL:', process.env.DATABASE_URL ? '✓ Yes' : '✗ No (using individual DB_* vars)');
+        console.log('Updating location schema with new fields...');
         
-        pool = new Pool(DB_CONFIG);
+        // Check if new columns exist
+        const columns = await dbQuery(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'locations'
+        `);
         
-        pool.on('error', (err, client) => {
-            console.error('❌ Unexpected error on idle client in pool:', err);
-            console.error('   Error details:', err.message);
-        });
+        const existingColumns = columns.rows.map(col => col.column_name);
+        const newColumns = [
+            'contact',
+            'operating_hours', 
+            'fuel_types',
+            'services_offered',
+            'description'
+        ];
         
-        pool.on('connect', () => {
-            console.log('✓ New client connected to pool');
-        });
-        
-        pool.on('remove', () => {
-            console.log('⚠️ Client removed from pool');
-        });
-
-        const res = await Promise.race([
-            pool.query('SELECT NOW()'),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timeout after 15s')), 15000))
-        ]);
-        
-        console.log('✓ Connected to Postgres database - Server time:', res.rows[0].now);
-
-        await checkAllTables();
-        await createIndexes();
-        await addMissingColumnsPostgres();
-        await addSampleData();
-        
-    } catch (error) {
-        console.error('❌ Database initialization failed:', error.message);
-        console.error('\n🔧 Troubleshooting:');
-        
-        if (process.env.DATABASE_URL) {
-            console.error('1. Check DATABASE_URL is valid: ' + (process.env.DATABASE_URL.substring(0, 30) + '...'));
-        } else {
-            console.error('1. DB_HOST:', process.env.DB_HOST);
-            console.error('2. DB_PORT:', process.env.DB_PORT);
-            console.error('3. DB_NAME:', process.env.DB_NAME);
+        for (const column of newColumns) {
+            if (!existingColumns.includes(column)) {
+                console.log(`Adding column: ${column}`);
+                let columnType = 'VARCHAR(500)';
+                if (column === 'description') {
+                    columnType = 'TEXT';
+                }
+                
+                await dbQuery(`
+                    ALTER TABLE locations 
+                    ADD COLUMN ${column} ${columnType}
+                `);
+            }
         }
         
-        console.error('\n2. Verify Postgres is running and accessible');
-        console.error('3. Check network/firewall settings');
-        console.error('\nWill retry on next request...\n');
+        console.log('✓ Location schema updated successfully');
+    } catch (error) {
+        console.error('Error updating location schema:', error);
+    }
+}
+
+async function initializeDatabase() {
+    try {
+        pool = new Pool(DB_CONFIG);
+
+        // Simple connectivity check
+        const res = await pool.query('SELECT NOW()');
+        console.log('✓ Connected to Postgres database:', DB_CONFIG.database, 'Server time:', res.rows[0].now);
+
+        // Check and add missing columns for archive functionality
+        await addMissingColumnsPostgres();
+        
+    } catch (error) {
+        console.error('Database initialization failed:', error);
+        process.exit(1);
     }
 }
 
@@ -612,100 +323,17 @@ function authenticateAdmin(req, res, next) {
 }
 
 // FIXED: Health check endpoint
-app.get('/api/health', async (req, res) => {
-    try {
-        if (!pool) {
-            return res.status(503).json({ 
-                status: 'DEGRADED',
-                message: 'Database pool not initialized',
-                database: 'NOT CONNECTED'
-            });
-        }
-        
-        const result = await Promise.race([
-            pool.query('SELECT NOW()'),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-        
-        res.json({ 
-            status: 'OK', 
-            message: 'Server is running',
-            database: 'CONNECTED',
-            timestamp: result.rows[0].now
-        });
-    } catch (error) {
-        res.status(503).json({ 
-            status: 'DEGRADED', 
-            message: 'Database connection failed',
-            database: 'ERROR: ' + error.message,
-            error: error.message
-        });
-    }
-});
-
-// ========== AUTH ENDPOINTS ==========
-
-// Auth login endpoint (alternative to /api/login)
-app.post('/api/auth/login', async (req, res) => {
-    try {
-        if (!pool) {
-            return res.status(503).json({ error: 'Database not ready yet. Please try again in a few seconds.' });
-        }
-
-        const { email, password } = req.body;
-        
-        if (!email || !password) {
-            return res.status(400).json({ error: 'Email and password are required' });
-        }
-
-        const results = (await dbQuery('SELECT * FROM users WHERE email = $1', [email])).rows;
-        if (results.length === 0) {
-            return res.status(400).json({ error: 'Invalid email or password' });
-        }
-        
-        const user = results[0];
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
-            return res.status(400).json({ error: 'Invalid email or password' });
-        }
-        
-        const token = jwt.sign(
-            { id: user.id, email: user.email, name: user.name },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-        
-        res.json({
-            message: 'Login successful',
-            token,
-            user: { id: user.id, name: user.name, email: user.email }
-        });
-    } catch (error) {
-        console.error('❌ Auth login error:', {
-            message: error.message,
-            code: error.code,
-            detail: error.detail,
-            stack: error.stack
-        });
-        res.status(500).json({ error: error.message || 'Server error' });
-    }
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', message: 'Server is running' });
 });
 
 // User registration
 app.post('/api/register', async (req, res) => {
     try {
-        if (!pool) {
-            return res.status(503).json({ error: 'Database not ready yet. Please try again in a few seconds.' });
-        }
-
         const { name, email, password } = req.body;
         
         if (!name || !email || !password) {
             return res.status(400).json({ error: 'All fields are required' });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
         }
 
         const results = (await dbQuery('SELECT id FROM users WHERE email = $1', [email])).rows;
@@ -733,31 +361,14 @@ app.post('/api/register', async (req, res) => {
             user: { id: userId, name, email }
         });
     } catch (error) {
-        console.error('❌ Registration error:', {
-            message: error.message,
-            code: error.code,
-            detail: error.detail,
-            stack: error.stack
-        });
-        
-        let errorMessage = 'Registration failed';
-        if (error.code === '23505') {
-            errorMessage = 'Email already exists';
-        } else if (error.code === 'ECONNREFUSED') {
-            errorMessage = 'Database connection failed. Please try again.';
-        }
-        
-        res.status(500).json({ error: errorMessage });
+        console.error('Registration error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
 // User login
 app.post('/api/login', async (req, res) => {
     try {
-        if (!pool) {
-            return res.status(503).json({ error: 'Database not ready yet. Please try again in a few seconds.' });
-        }
-
         const { email, password } = req.body;
         
         if (!email || !password) {
@@ -787,13 +398,8 @@ app.post('/api/login', async (req, res) => {
             user: { id: user.id, name: user.name, email: user.email }
         });
     } catch (error) {
-        console.error('❌ User login error:', {
-            message: error.message,
-            code: error.code,
-            detail: error.detail,
-            stack: error.stack
-        });
-        res.status(500).json({ error: error.message || 'Server error' });
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
@@ -821,6 +427,7 @@ app.post('/api/forgot-password', async (req, res) => {
         
         console.log(`Password reset token for ${email}: ${resetToken}`);
 
+        // Try to send email if transporter available
         if (mailTransporter) {
             try {
                 await mailTransporter.sendMail({
@@ -832,7 +439,10 @@ app.post('/api/forgot-password', async (req, res) => {
                 });
             } catch (mailErr) {
                 console.error('Failed to send reset email:', mailErr);
+                // Do not expose mail errors to the client; fall back to logging
             }
+        } else {
+            // Fallback: already logged the code to console above
         }
 
         res.json({ 
@@ -840,54 +450,6 @@ app.post('/api/forgot-password', async (req, res) => {
         });
     } catch (error) {
         console.error('Forgot password error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// Auth forgot password endpoint
-app.post('/api/auth/forgot-password', async (req, res) => {
-    try {
-        const { email } = req.body;
-        
-        if (!email) {
-            return res.status(400).json({ error: 'Email is required' });
-        }
-        
-        const results = (await dbQuery('SELECT id FROM users WHERE email = $1', [email])).rows;
-        if (results.length === 0) {
-            return res.json({ message: 'If the email exists, a reset code has been sent' });
-        }
-        
-        const resetToken = crypto.randomInt(100000, 999999).toString();
-        const resetTokenExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000);
-        
-        await dbQuery(
-            'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3',
-            [resetToken, resetTokenExpiry, email]
-        );
-        
-        console.log(`Password reset token for ${email}: ${resetToken}`);
-        
-        if (mailTransporter) {
-            try {
-                await mailTransporter.sendMail({
-                    from: SMTP_FROM,
-                    to: email,
-                    subject: 'MOONRIDER Password Reset Code',
-                    text: `Your password reset code is: ${resetToken}. It expires in 1 hour. If you did not request this, ignore this email.`,
-                    html: `<p>Your password reset code is: <strong>${resetToken}</strong></p><p>This code expires in 1 hour.</p>`
-                });
-            } catch (mailErr) {
-                console.error('Failed to send reset email:', mailErr);
-            }
-        }
-        
-        res.json({ 
-            message: 'If the email exists, a reset code has been generated',
-            token: resetToken
-        });
-    } catch (error) {
-        console.error('Auth forgot password error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -932,53 +494,9 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// Auth reset password endpoint
-app.post('/api/auth/reset-password', async (req, res) => {
-    try {
-        const { email, code, newPassword } = req.body;
-        
-        if (!email || !code || !newPassword) {
-            return res.status(400).json({ error: 'Email, code, and new password are required' });
-        }
-        
-        if (newPassword.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
-        }
-        
-        const results = (await dbQuery(
-            'SELECT id, reset_token_expiry FROM users WHERE email = $1 AND reset_token = $2',
-            [email, code]
-        )).rows;
-        
-        if (results.length === 0) {
-            return res.status(400).json({ error: 'Invalid or expired reset code' });
-        }
-        
-        const user = results[0];
-        if (new Date(user.reset_token_expiry) < new Date()) {
-            return res.status(400).json({ error: 'Reset code has expired' });
-        }
-        
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        await dbQuery(
-            'UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE email = $2',
-            [hashedPassword, email]
-        );
-        
-        res.json({ message: 'Password reset successfully' });
-    } catch (error) {
-        console.error('Auth reset password error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
 // Admin login
 app.post('/api/admin-login', async (req, res) => {
     try {
-        if (!pool) {
-            return res.status(503).json({ error: 'Database not ready yet. Please try again in a few seconds.' });
-        }
-
         const { username, password } = req.body;
         
         if (!username || !password) {
@@ -1008,17 +526,12 @@ app.post('/api/admin-login', async (req, res) => {
             admin: { id: admin.id, username: admin.username }
         });
     } catch (error) {
-        console.error('❌ Admin login error:', {
-            message: error.message,
-            code: error.code,
-            detail: error.detail,
-            stack: error.stack
-        });
-        res.status(500).json({ error: error.message || 'Server error' });
+        console.error('Admin login error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-// Get all locations
+// Get all locations - UPDATED with new fields
 app.get('/api/locations', async (req, res) => {
     try {
         const { type } = req.query;
@@ -1027,9 +540,9 @@ app.get('/api/locations', async (req, res) => {
             SELECT 
                 id, name, type, lat, lng, address, 
                 contact, operating_hours, fuel_types, services_offered,
-                description, image, views, visits, created_at, is_archived, archived_at
+                description, image, views, visits, created_at
             FROM locations 
-            WHERE is_archived = false OR is_archived IS NULL
+            WHERE is_archived = FALSE
         `;
         let params = [];
         
@@ -1038,14 +551,7 @@ app.get('/api/locations', async (req, res) => {
             params.push(type);
         }
         
-        query += ' ORDER BY name';
-        
         const locations = (await dbQuery(query, params)).rows;
-        
-        console.log(`📍 Fetched ${locations.length} locations (type: ${type || 'all'})`);
-        if (locations.length > 0) {
-            console.log('   First location:', locations[0]);
-        }
 
         res.json({ 
             locations: locations.map(loc => ({
@@ -1060,18 +566,19 @@ app.get('/api/locations', async (req, res) => {
     }
 });
 
-// Get locations for admin panel
+// NEW: Get locations for admin panel
 app.get('/api/admin/locations', authenticateAdmin, async (req, res) => {
     try {
         const { type } = req.query;
         
         let query = `
             SELECT * FROM locations 
-            WHERE 1=1
+            WHERE is_archived = FALSE
         `;
         let params = [];
         
         if (type && type !== 'all') {
+            // Handle both frontend and backend type names
             let dbType = type;
             if (type === 'station') dbType = 'gasoline';
             if (type === 'shop') dbType = 'repair';
@@ -1119,6 +626,7 @@ app.post('/api/favorites', authenticateToken, async (req, res) => {
         );
         res.json({ message: 'Added to favorites' });
     } catch (error) {
+        // Postgres duplicate key error is 23505. Keep MySQL code for compatibility.
         if (error.code === '23505' || error.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ error: 'Already in favorites' });
         }
@@ -1144,7 +652,7 @@ app.delete('/api/favorites/:locationId', authenticateToken, async (req, res) => 
     }
 });
 
-// Record location visit
+// Record location visit - FIXED to use optional auth
 app.post('/api/locations/:id/visit', optionalAuth, async (req, res) => {
     try {
         const userId = req.user ? req.user.id : null;
@@ -1163,6 +671,7 @@ app.post('/api/locations/:id/visit', optionalAuth, async (req, res) => {
         }
     } catch (error) {
         console.error('Record visit error:', error);
+        // If the error looks like a transient connection reset, try to recreate the pool once
         if (error && (error.code === 'ECONNRESET' || error.errno === 'ECONNRESET')) {
             console.warn('Transient DB connection error detected, recreating pool and retrying on next request');
             try { await recreatePool(); } catch (e) { console.error('Failed to recreate DB pool:', e); }
@@ -1273,21 +782,21 @@ app.post('/api/locations/:id/reviews', authenticateToken, async (req, res) => {
 // Admin: Get statistics
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
     try {
-        const userCount = (await dbQuery('SELECT COUNT(*) as count FROM users')).rows;
-        const stationCount = (await dbQuery('SELECT COUNT(*) as count FROM locations WHERE type = $1', ['gasoline'])).rows;
-        const shopCount = (await dbQuery('SELECT COUNT(*) as count FROM locations WHERE type = $1', ['repair'])).rows;
-        const visitCount = (await dbQuery('SELECT COUNT(*) as count FROM location_visits')).rows;
+    const userCount = (await dbQuery('SELECT COUNT(*) as count FROM users')).rows;
+    const stationCount = (await dbQuery('SELECT COUNT(*) as count FROM locations WHERE type = $1 AND is_archived = FALSE', ['gasoline'])).rows;
+    const shopCount = (await dbQuery('SELECT COUNT(*) as count FROM locations WHERE type = $1 AND is_archived = FALSE', ['repair'])).rows;
+    const visitCount = (await dbQuery('SELECT COUNT(*) as count FROM location_visits')).rows;
 
-        const locations = (await dbQuery('SELECT * FROM locations')).rows;
+    const locations = (await dbQuery('SELECT * FROM locations WHERE is_archived = FALSE')).rows;
 
-        const stations = locations.filter(loc => loc.type === 'gasoline');
-        const repairShops = locations.filter(loc => loc.type === 'repair');
+    const stations = locations.filter(loc => loc.type === 'gasoline');
+    const repairShops = locations.filter(loc => loc.type === 'repair');
         
         res.json({
-            totalStations: parseInt(stationCount[0].count),
-            totalRepairShops: parseInt(shopCount[0].count),
-            registeredUsers: parseInt(userCount[0].count),
-            totalVisits: parseInt(visitCount[0].count),
+            totalStations: stationCount[0].count,
+            totalRepairShops: shopCount[0].count,
+            registeredUsers: userCount[0].count,
+            totalVisits: visitCount[0].count,
             stations,
             repairShops
         });
@@ -1322,8 +831,10 @@ app.get('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
                 fuel_types: locationData.fuel_types,
                 services_offered: locationData.services_offered,
                 description: locationData.description,
+                image: locationData.image,
                 views: locationData.views,
                 visits: locationData.visits,
+                is_archived: locationData.is_archived,
                 created_at: locationData.created_at
             }
         });
@@ -1333,9 +844,10 @@ app.get('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
     }
 });
 
-// Admin: Add location with enhanced validation
-app.post('/api/admin/locations', authenticateAdmin, async (req, res) => {
+// Admin: Add location
+app.post('/api/admin/locations', authenticateAdmin, upload.single('image'), async (req, res) => {
     try {
+        // When using multipart/form-data, multer populates req.body (strings) and req.file
         const {
             name,
             address,
@@ -1349,43 +861,11 @@ app.post('/api/admin/locations', authenticateAdmin, async (req, res) => {
             description
         } = req.body;
 
-        console.log('📝 Add location request:', { name, address, lat, lng, type });
-
-        const errors = [];
-        
-        if (!name || name.trim().length < 2) {
-            errors.push('Name must be at least 2 characters');
-        }
-        
-        if (!address || address.trim().length < 5) {
-            errors.push('Address must be at least 5 characters');
-        }
-        
-        if (!lat || !lng) {
-            errors.push('Coordinates are required');
-        }
-        
-        const latNum = parseFloat(lat);
-        const lngNum = parseFloat(lng);
-        if (isNaN(latNum) || isNaN(lngNum)) {
-            errors.push('Invalid coordinates');
-        } else {
-            if (latNum < -90 || latNum > 90) {
-                errors.push('Latitude must be between -90 and 90');
-            }
-            if (lngNum < -180 || lngNum > 180) {
-                errors.push('Longitude must be between -180 and 180');
-            }
-        }
-        
-        if (!type) {
-            errors.push('Type is required');
-        }
-        
-        if (errors.length > 0) {
-            return res.status(400).json({ error: errors.join(', ') });
+        if (!name || !address || !lat || !lng || !type) {
+            return res.status(400).json({ error: 'All required fields are missing' });
         }
 
+        // Accept frontend synonyms: 'station' -> 'gasoline', 'shop' -> 'repair'
         let normalizedType = type;
         if (type === 'station') normalizedType = 'gasoline';
         if (type === 'shop') normalizedType = 'repair';
@@ -1394,39 +874,26 @@ app.post('/api/admin/locations', authenticateAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Type must be either "gasoline" or "repair"' });
         }
 
-        if (normalizedType === 'gasoline' && (!fuel_types || fuel_types.trim().length < 2)) {
-            errors.push('Fuel types are required for gas stations');
+        const latNum = parseFloat(lat);
+        const lngNum = parseFloat(lng);
+        if (isNaN(latNum) || isNaN(lngNum)) {
+            return res.status(400).json({ error: 'Invalid coordinates' });
         }
-        
-        if (normalizedType === 'repair' && (!services_offered || services_offered.trim().length < 2)) {
-            errors.push('Services offered are required for repair shops');
-        }
-        
-        if (errors.length > 0) {
-            return res.status(400).json({ error: errors.join(', ') });
+
+        // If an image file was uploaded, multer provides req.file
+        let imageUrl = null;
+        if (req.file) {
+            imageUrl = `/uploads/${req.file.filename}`;
         }
 
         const result = await dbQuery(
-            `INSERT INTO locations (name, address, lat, lng, type, contact, operating_hours, fuel_types, services_offered, description) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-            [
-                name.trim(),
-                address.trim(),
-                latNum,
-                lngNum,
-                normalizedType,
-                contact ? contact.trim() : null,
-                operating_hours ? operating_hours.trim() : null,
-                fuel_types ? fuel_types.trim() : null,
-                services_offered ? services_offered.trim() : null,
-                description ? description.trim() : null
-            ]
+            `INSERT INTO locations (name, address, lat, lng, type, contact, operating_hours, fuel_types, services_offered, description, image) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+            [name, address, latNum, lngNum, normalizedType, contact, operating_hours, fuel_types, services_offered, description || null, imageUrl]
         );
 
         const newId = result.rows[0].id;
         const newLocation = (await dbQuery('SELECT * FROM locations WHERE id = $1', [newId])).rows[0];
-
-        console.log('✅ Location added successfully:', newId);
 
         res.status(201).json({ 
             message: 'Location added successfully',
@@ -1434,13 +901,13 @@ app.post('/api/admin/locations', authenticateAdmin, async (req, res) => {
             id: newId
         });
     } catch (error) {
-        console.error('❌ Add location error:', error);
-        res.status(500).json({ error: 'Failed to add location: ' + error.message });
+        console.error('Add location error:', error);
+        res.status(500).json({ error: 'Failed to add location' });
     }
 });
 
-// Admin: Update location with enhanced validation
-app.put('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
+// Admin: Update location
+app.put('/api/admin/locations/:id', authenticateAdmin, upload.single('image'), async (req, res) => {
     try {
         const locationId = req.params.id;
         const {
@@ -1456,43 +923,11 @@ app.put('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
             description
         } = req.body;
 
-        console.log('📝 Update location request:', { id: locationId, name, address, lat, lng, type });
-
-        const errors = [];
-        
-        if (!name || name.trim().length < 2) {
-            errors.push('Name must be at least 2 characters');
-        }
-        
-        if (!address || address.trim().length < 5) {
-            errors.push('Address must be at least 5 characters');
-        }
-        
-        if (!lat || !lng) {
-            errors.push('Coordinates are required');
-        }
-        
-        const latNum = parseFloat(lat);
-        const lngNum = parseFloat(lng);
-        if (isNaN(latNum) || isNaN(lngNum)) {
-            errors.push('Invalid coordinates');
-        } else {
-            if (latNum < -90 || latNum > 90) {
-                errors.push('Latitude must be between -90 and 90');
-            }
-            if (lngNum < -180 || lngNum > 180) {
-                errors.push('Longitude must be between -180 and 180');
-            }
-        }
-        
-        if (!type) {
-            errors.push('Type is required');
-        }
-        
-        if (errors.length > 0) {
-            return res.status(400).json({ error: errors.join(', ') });
+        if (!name || !address || !lat || !lng || !type) {
+            return res.status(400).json({ error: 'All required fields are missing' });
         }
 
+        // Accept frontend synonyms: 'station' -> 'gasoline', 'shop' -> 'repair'
         let normalizedType = type;
         if (type === 'station') normalizedType = 'gasoline';
         if (type === 'shop') normalizedType = 'repair';
@@ -1501,165 +936,230 @@ app.put('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
             return res.status(400).json({ error: 'Type must be either "gasoline" or "repair"' });
         }
 
-        if (normalizedType === 'gasoline' && (!fuel_types || fuel_types.trim().length < 2)) {
-            errors.push('Fuel types are required for gas stations');
-        }
-        
-        if (normalizedType === 'repair' && (!services_offered || services_offered.trim().length < 2)) {
-            errors.push('Services offered are required for repair shops');
-        }
-        
-        if (errors.length > 0) {
-            return res.status(400).json({ error: errors.join(', ') });
+        const latNum = parseFloat(lat);
+        const lngNum = parseFloat(lng);
+        if (isNaN(latNum) || isNaN(lngNum)) {
+            return res.status(400).json({ error: 'Invalid coordinates' });
         }
 
-        const existingLocation = (await dbQuery('SELECT id FROM locations WHERE id = $1', [locationId])).rows;
-        if (existingLocation.length === 0) {
-            return res.status(404).json({ error: 'Location not found' });
+        // If an image file was uploaded, multer provides req.file
+        let imageUrl = null;
+        if (req.file) {
+            imageUrl = `/uploads/${req.file.filename}`;
         }
 
+        // Build update query; include image if provided
         let query = `UPDATE locations SET 
                 name = $1, address = $2, lat = $3, lng = $4, type = $5,
-                contact = $6, operating_hours = $7, fuel_types = $8, services_offered = $9, description = $10
-                WHERE id = $11`;
-        const params = [
-            name.trim(),
-            address.trim(),
-            latNum,
-            lngNum,
-            normalizedType,
-            contact ? contact.trim() : null,
-            operating_hours ? operating_hours.trim() : null,
-            fuel_types ? fuel_types.trim() : null,
-            services_offered ? services_offered.trim() : null,
-            description ? description.trim() : null,
-            locationId
-        ];
+                contact = $6, operating_hours = $7, fuel_types = $8, services_offered = $9, description = $10`;
+        const params = [name, address, latNum, lngNum, normalizedType, contact, operating_hours, fuel_types, services_offered, description || null];
 
-        console.log('📝 Executing update query:', query);
-        console.log('📝 With params:', params);
+        if (imageUrl) {
+            query += `, image = $11`;
+            params.push(imageUrl);
+            query += ` WHERE id = $12`;
+            params.push(locationId);
+        } else {
+            query += ` WHERE id = $11`;
+            params.push(locationId);
+        }
 
         const result = await dbQuery(query, params);
 
-        console.log('✅ Location updated successfully:', locationId);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Location not found' });
+        }
 
         res.json({ 
             message: 'Location updated successfully'
         });
     } catch (error) {
-        console.error('❌ Update location error:', error);
-        res.status(500).json({ error: 'Failed to update location: ' + error.message });
+        console.error('Update location error:', error);
+        res.status(500).json({ error: 'Failed to update location' });
     }
 });
 
-// FIXED: Admin: Delete location (permanent deletion) with foreign key constraint handling
-app.delete('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
-    const client = await pool.connect();
+// FIXED: Helper functions for archive/unarchive - PostgreSQL compatible
+async function archiveLocationHandler(req, res) {
     try {
         const locationId = req.params.id;
-        console.log(`🗑️ Deleting location ID: ${locationId}`);
-        
-        await client.query('BEGIN');
-        
-        const existingLocation = await client.query('SELECT id FROM locations WHERE id = $1', [locationId]);
-        if (existingLocation.rows.length === 0) {
-            console.warn(`⚠️ Location not found: ${locationId}`);
-            await client.query('ROLLBACK');
+        const result = await dbQuery(
+            'UPDATE locations SET is_archived = TRUE, archived_at = CURRENT_TIMESTAMP WHERE id = $1',
+            [locationId]
+        );
+
+        if (result.rowCount === 0) {
             return res.status(404).json({ error: 'Location not found' });
         }
-        
-        await client.query('DELETE FROM favorites WHERE location_id = $1', [locationId]);
-        await client.query('DELETE FROM reviews WHERE location_id = $1', [locationId]);
-        await client.query('DELETE FROM location_visits WHERE location_id = $1', [locationId]);
-        await client.query('DELETE FROM location_views WHERE location_id = $1', [locationId]);
-        
-        const result = await client.query('DELETE FROM locations WHERE id = $1', [locationId]);
-        
-        await client.query('COMMIT');
-        console.log(`✓ Location deleted successfully: ${locationId}`);
 
-        res.json({ 
-            message: 'Location deleted successfully'
+        res.json({ message: 'Location archived successfully' });
+    } catch (error) {
+        console.error('Archive location error:', error);
+        res.status(500).json({ error: 'Failed to archive location' });
+    }
+}
+
+async function unarchiveLocationHandler(req, res) {
+    try {
+        const locationId = req.params.id;
+        const result = await dbQuery(
+            'UPDATE locations SET is_archived = FALSE, archived_at = NULL WHERE id = $1',
+            [locationId]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Location not found' });
+        }
+
+        res.json({ message: 'Location unarchived successfully' });
+    } catch (error) {
+        console.error('Unarchive location error:', error);
+        res.status(500).json({ error: 'Failed to unarchive location' });
+    }
+}
+
+// Archive location (both PUT and POST)
+app.put('/api/admin/locations/:id/archive', authenticateAdmin, archiveLocationHandler);
+app.post('/api/admin/locations/:id/archive', authenticateAdmin, archiveLocationHandler);
+
+// Unarchive location (both PUT and POST)
+app.put('/api/admin/locations/:id/unarchive', authenticateAdmin, unarchiveLocationHandler);
+app.post('/api/admin/locations/:id/unarchive', authenticateAdmin, unarchiveLocationHandler);
+
+// FIXED: Admin: Get archived locations - PostgreSQL compatible
+app.get('/api/admin/locations/archived', authenticateAdmin, async (req, res) => {
+    try {
+        const { type } = req.query;
+
+        let query, params;
+
+        if (type && (type === 'gasoline' || type === 'repair')) {
+            query = 'SELECT * FROM locations WHERE is_archived = TRUE AND type = $1';
+            params = [type];
+        } else if (type === 'station') {
+            query = 'SELECT * FROM locations WHERE is_archived = TRUE AND type = $1';
+            params = ['gasoline'];
+        } else if (type === 'shop') {
+            query = 'SELECT * FROM locations WHERE is_archived = TRUE AND type = $1';
+            params = ['repair'];
+        } else {
+            query = 'SELECT * FROM locations WHERE is_archived = TRUE';
+            params = [];
+        }
+
+        const result = await dbQuery(query, params);
+        const locations = result.rows;
+
+        // For backward compatibility with frontend
+        if (type && (type === 'gasoline' || type === 'station')) {
+            return res.json({ 
+                locations: locations,
+                archivedStations: locations 
+            });
+        } else if (type && (type === 'repair' || type === 'shop')) {
+            return res.json({ 
+                locations: locations,
+                archivedShops: locations 
+            });
+        }
+
+        // If no specific type requested, return both
+        const archivedStations = locations.filter(loc => loc.type === 'gasoline');
+        const archivedShops = locations.filter(loc => loc.type === 'repair');
+
+        res.json({
+            locations: locations,
+            archivedStations,
+            archivedShops
         });
     } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('❌ Delete location error:', {
-            message: error.message,
-            code: error.code,
-            stack: error.stack
-        });
-        
-        let errorMessage = 'Failed to delete location';
-        if (error.code === '23503') {
-            errorMessage = 'Cannot delete location due to related records.';
-        }
-        
-        res.status(500).json({ error: errorMessage });
-    } finally {
-        client.release();
+        console.error('Get archived locations error:', error);
+        res.status(500).json({ error: 'Failed to fetch archived locations' });
     }
 });
 
-// Get nearby locations
-app.get('/api/nearby', async (req, res) => {
+// Admin: Upload location image
+app.post('/api/admin/locations/:id/image', authenticateAdmin, upload.single('image'), async (req, res) => {
     try {
-        const { lat, lng, radius = 5, type } = req.query;
-        
-        if (!lat || !lng) {
-            return res.status(400).json({ error: 'Latitude and longitude are required' });
+        const locationId = req.params.id;
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image file provided' });
         }
-        
-        const userLat = parseFloat(lat);
-        const userLng = parseFloat(lng);
-        const searchRadius = parseFloat(radius);
-        
-        if (isNaN(userLat) || isNaN(userLng)) {
-            return res.status(400).json({ error: 'Invalid coordinates' });
+
+        const imageUrl = `/uploads/${req.file.filename}`;
+
+        const result = await dbQuery(
+            'UPDATE locations SET image = $1 WHERE id = $2',
+            [imageUrl, locationId]
+        );
+
+        if (result.rowCount === 0) {
+            // Delete the uploaded file if location not found
+            fs.unlinkSync(req.file.path);
+            return res.status(404).json({ error: 'Location not found' });
         }
-        
-        const earthRadius = 6371;
-        const latDelta = searchRadius / earthRadius * (180 / Math.PI);
-        const lngDelta = searchRadius / (earthRadius * Math.cos(userLat * Math.PI / 180)) * (180 / Math.PI);
-        
-        let query = `
-            SELECT 
-                id, name, type, lat, lng, address, 
-                contact, operating_hours, fuel_types, services_offered,
-                description, image, views, visits,
-                (6371 * acos(cos(radians($1)) * cos(radians(lat)) * cos(radians(lng) - radians($2)) + sin(radians($1)) * sin(radians(lat)))) AS distance
-            FROM locations 
-            WHERE 
-                lat BETWEEN $3 AND $4
-                AND lng BETWEEN $5 AND $6
-        `;
-        
-        let params = [
-            userLat, userLng,
-            userLat - latDelta, userLat + latDelta,
-            userLng - lngDelta, userLng + lngDelta
-        ];
-        
-        if (type && type !== 'all') {
-            query += ' AND type = $7';
-            params.push(type);
-        }
-        
-        query += ' HAVING distance <= $8 ORDER BY distance LIMIT 20';
-        params.push(searchRadius);
-        
-        const locations = (await dbQuery(query, params)).rows;
-        
+
         res.json({ 
-            locations: locations.map(loc => ({
-                ...loc,
-                lat: parseFloat(loc.lat),
-                lng: parseFloat(loc.lng),
-                distance: parseFloat(loc.distance).toFixed(2)
-            }))
+            message: 'Image uploaded successfully',
+            imageUrl: imageUrl
         });
     } catch (error) {
-        console.error('Get nearby locations error:', error);
-        res.status(500).json({ error: 'Failed to fetch nearby locations' });
+        console.error('Upload image error:', error);
+        // Delete the uploaded file if there was an error
+        if (req.file) {
+            fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({ error: 'Failed to upload image' });
+    }
+});
+
+// Admin: Delete location (permanent deletion)
+app.delete('/api/admin/locations/:id', authenticateAdmin, async (req, res) => {
+    try {
+        const locationId = req.params.id;
+
+        // First get the location to check if it has an image
+        const location = (await dbQuery('SELECT image FROM locations WHERE id = $1', [locationId])).rows;
+
+        const client = await pool.connect();
+        await client.query('BEGIN');
+
+        try {
+            await client.query(replacePlaceholders('DELETE FROM reviews WHERE location_id = ?'), [locationId]);
+            await client.query(replacePlaceholders('DELETE FROM favorites WHERE location_id = ?'), [locationId]);
+            await client.query(replacePlaceholders('DELETE FROM location_visits WHERE location_id = ?'), [locationId]);
+            await client.query(replacePlaceholders('DELETE FROM location_views WHERE location_id = ?'), [locationId]);
+            
+            const result = await client.query(replacePlaceholders('DELETE FROM locations WHERE id = ? RETURNING id'), [locationId]);
+            
+            if (result.rowCount === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'Location not found' });
+            }
+
+            await client.query('COMMIT');
+
+            // Delete the image file if it exists
+            if (location.length > 0 && location[0].image) {
+                const imagePath = path.join(__dirname, location[0].image);
+                if (fs.existsSync(imagePath)) {
+                    fs.unlinkSync(imagePath);
+                }
+            }
+
+            res.json({ message: 'Location deleted successfully' });
+
+        } catch (transactionError) {
+            await client.query('ROLLBACK');
+            throw transactionError;
+        } finally {
+            client.release();
+        }
+
+    } catch (error) {
+        console.error('Delete location error:', error);
+        res.status(500).json({ error: 'Failed to delete location' });
     }
 });
 
@@ -1669,27 +1169,32 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ error: 'Endpoint not found' });
+// Multer error handling
+app.use((err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: 'File too large. Maximum size is 5MB.' });
+        }
+    }
+    next(err);
 });
 
 // Start server
-initializeDatabase().catch(err => {
-    console.warn('⚠️ Database initialization encountered issues - server starting anyway:', err.message);
-}).finally(() => {
+initializeDatabase().then(() => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log('='.repeat(50));
         console.log(`✓ Server running on http://localhost:${PORT}`);
         console.log(`✓ Admin Panel: http://localhost:${PORT}/admin.html`);
         console.log(`✓ Main App: http://localhost:${PORT}/index.html`);
-        console.log(`✓ Health Check: http://localhost:${PORT}/api/health`);
         console.log('='.repeat(50));
         console.log('Admin Credentials:');
         console.log('  Username: admin');
         console.log('  Password: admin123');
         console.log('='.repeat(50));
     });
+}).catch(err => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
 });
 
 // Global handlers for unexpected errors
@@ -1707,4 +1212,5 @@ process.on('uncaughtException', (err) => {
         console.warn('Uncaught exception ECONNRESET — recreating pool');
         recreatePool().catch(e => console.error('Failed to recreate pool after uncaughtException:', e));
     }
+    // Do not exit automatically in dev — allow process to continue if possible
 });
