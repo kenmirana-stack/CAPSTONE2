@@ -1,8 +1,3 @@
-// NOTE: This is your server.js with connection-resilience fixes:
-//  - Use DATABASE_URL if provided
-//  - Recreate pool on fatal errors and retry queries once
-//  - Added pool.on('error') auto-recreate handler
-
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
@@ -80,6 +75,8 @@ if (SMTP_USER && SMTP_PASS && SMTP_PASS.length > 5) {
 
 
 let pool;
+
+// Keep DB_CONFIG defined (used by fallback when getPoolOptions is called)
 const DB_CONFIG = {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5432,
@@ -93,19 +90,31 @@ const DB_CONFIG = {
     ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
 };
 
-// If the environment provides a DATABASE_URL (e.g. Render, Heroku), prefer connectionString
+// Safely build pool options. Prefer `DATABASE_URL` when present, otherwise
+// construct options from environment variables with sensible defaults.
 function getPoolOptions() {
     if (process.env.DATABASE_URL) {
         console.log('Using DATABASE_URL for Postgres connection');
         return {
             connectionString: process.env.DATABASE_URL,
-            max: DB_CONFIG.max,
-            idleTimeoutMillis: DB_CONFIG.idleTimeoutMillis,
-            connectionTimeoutMillis: DB_CONFIG.connectionTimeoutMillis,
+            max: (DB_CONFIG && DB_CONFIG.max) || 10,
+            idleTimeoutMillis: (DB_CONFIG && DB_CONFIG.idleTimeoutMillis) || 30000,
+            connectionTimeoutMillis: (DB_CONFIG && DB_CONFIG.connectionTimeoutMillis) || 20000,
             ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
         };
     }
-    return DB_CONFIG;
+
+    return {
+        host: process.env.DB_HOST || (DB_CONFIG && DB_CONFIG.host) || 'localhost',
+        port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : ((DB_CONFIG && DB_CONFIG.port) || 5432),
+        user: process.env.DB_USER || (DB_CONFIG && DB_CONFIG.user) || 'postgres',
+        password: process.env.DB_PASSWORD || (DB_CONFIG && DB_CONFIG.password) || '',
+        database: process.env.DB_NAME || (DB_CONFIG && DB_CONFIG.database) || 'bulan_locator',
+        max: (DB_CONFIG && DB_CONFIG.max) || 10,
+        idleTimeoutMillis: (DB_CONFIG && DB_CONFIG.idleTimeoutMillis) || 30000,
+        connectionTimeoutMillis: (DB_CONFIG && DB_CONFIG.connectionTimeoutMillis) || 20000,
+        ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false }
+    };
 }
 
 function replacePlaceholders(sql) {
@@ -530,14 +539,8 @@ async function initializeDatabase() {
         console.log('🔄 Initializing database connection...');
         console.log('Using DATABASE_URL:', process.env.DATABASE_URL ? '✓ Yes' : '✗ No (using individual DB_* vars)');
         
-        pool = new Pool(getPoolOptions());
-        
-        pool.on('error', (err, client) => {
-            console.error('❌ Unexpected error on idle client in pool:', err);
-            console.error('   Error details:', err.message);
-            // Try to recreate pool asynchronously
-            recreatePool().catch(e => console.error('Failed to recreate pool after pool.on error:', e && e.message));
-        });
+        // Use recreatePool to ensure pool listeners are consistently set
+        await recreatePool();
         
         pool.on('connect', () => {
             console.log('✓ New client connected to pool');
@@ -560,7 +563,7 @@ async function initializeDatabase() {
         await addSampleData();
         
     } catch (error) {
-        console.error('❌ Database initialization failed:', error.message);
+        console.error('❌ Database initialization failed:', error && error.message ? error.message : error);
         console.error('\n🔧 Troubleshooting:');
         
         if (process.env.DATABASE_URL) {
@@ -1693,7 +1696,7 @@ app.use((req, res) => {
 
 // Start server
 initializeDatabase().catch(err => {
-    console.warn('⚠️ Database initialization encountered issues - server starting anyway:', err.message);
+    console.warn('⚠️ Database initialization encountered issues - server starting anyway:', err && err.message ? err.message : err);
 }).finally(() => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log('='.repeat(50));
